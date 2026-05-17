@@ -1,24 +1,3 @@
-//
-//  ContentView.swift
-//  TimeFlow
-//
-//  Created by Mobin on 17/05/2026.
-//
-
+// ContentView.swift is not used in this project.
+// The app entry point is TimeFlowApp.swift → MainTabView.swift
 import SwiftUI
-
-struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
-    }
-}
-
-#Preview {
-    ContentView()
-}

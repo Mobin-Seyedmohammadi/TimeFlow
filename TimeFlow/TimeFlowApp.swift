@@ -1,17 +1,14 @@
-//
-//  TimeFlowApp.swift
-//  TimeFlow
-//
-//  Created by Mobin on 17/05/2026.
-//
-
 import SwiftUI
 
 @main
 struct TimeFlowApp: App {
+    @StateObject private var vm = TimeFlowViewModel()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
+                .environmentObject(vm)
+                .preferredColorScheme(.light)
         }
     }
 }
