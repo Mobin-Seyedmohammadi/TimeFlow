@@ -432,35 +432,56 @@ struct AIEngine {
         category: TaskCategory,
         userEstimate: Int,
         history: [TimeFlowTask]
-    ) -> AISuggestion? {
+    ) -> AISuggestion {
+        // avg((actual - finalEstimate) / finalEstimate * 100) — same formula as Insights screen
         let categoryHistory = history.filter { $0.category == category && $0.actualDurationMinutes != nil }
-        guard !categoryHistory.isEmpty else { return nil }
-
-        // avg(actual - userEstimate) — the user's natural estimation bias in minutes
-        let diffs = categoryHistory.compactMap { t -> Int? in
-            guard let a = t.actualDurationMinutes else { return nil }
-            return a - t.userEstimateMinutes
+        let pcts = categoryHistory.compactMap { t -> Double? in
+            guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
+            return Double(a - t.finalEstimateMinutes) / Double(t.finalEstimateMinutes) * 100
         }
-        guard !diffs.isEmpty else { return nil }
 
-        let avgDiff = Double(diffs.reduce(0, +)) / Double(diffs.count)
-        let offsetMin = Int(avgDiff.rounded())
-        let suggested = max(1, userEstimate + offsetMin)
+        let avgPct: Double
+        let isPersonalized: Bool
+        if !pcts.isEmpty {
+            avgPct = pcts.reduce(0, +) / Double(pcts.count)
+            isPersonalized = true
+        } else {
+            // No history — fall back to hardcoded category default
+            avgPct = (category.aiAdjustmentFactor - 1.0) * 100
+            isPersonalized = false
+        }
 
-        let confidence: AIConfidence = categoryHistory.count >= 3 ? .high : .medium
-        let explanation = explanationFor(category: category, offsetMin: offsetMin, taskCount: categoryHistory.count)
-
+        let suggested = max(1, Int((Double(userEstimate) * (1.0 + avgPct / 100)).rounded()))
+        let confidence: AIConfidence = pcts.count >= 3 ? .high : pcts.count >= 1 ? .medium : .low
+        let explanation = explanationFor(
+            category: category, avgPct: avgPct, userEstimate: userEstimate,
+            suggested: suggested, isPersonalized: isPersonalized, taskCount: pcts.count
+        )
         return AISuggestion(suggestedMinutes: suggested, confidence: confidence, explanation: explanation)
     }
 
-    private static func explanationFor(category: TaskCategory, offsetMin: Int, taskCount: Int) -> String {
+    private static func explanationFor(
+        category: TaskCategory, avgPct: Double, userEstimate: Int,
+        suggested: Int, isPersonalized: Bool, taskCount: Int
+    ) -> String {
+        let pctInt = Int(avgPct.rounded())
         let taskWord = taskCount == 1 ? "task" : "tasks"
-        if offsetMin > 0 {
-            return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), you typically underestimate by \(offsetMin) min. Added \(offsetMin) min to your estimate."
-        } else if offsetMin < 0 {
-            return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), you typically overestimate by \(abs(offsetMin)) min. Reduced your estimate by \(abs(offsetMin)) min."
+        if isPersonalized {
+            if pctInt > 0 {
+                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), you tend to underestimate by \(pctInt)%. TimeFlow suggests \(suggested) min instead of \(userEstimate) min."
+            } else if pctInt < 0 {
+                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), you tend to overestimate by \(abs(pctInt))%. TimeFlow suggests \(suggested) min instead of \(userEstimate) min."
+            } else {
+                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), your estimates are accurate. TimeFlow keeps your estimate at \(suggested) min."
+            }
         } else {
-            return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), your estimates are accurate. No adjustment needed."
+            if pctInt > 0 {
+                return "Based on typical \(category.rawValue.lowercased()) patterns, people tend to underestimate by \(pctInt)%. TimeFlow suggests \(suggested) min instead of \(userEstimate) min."
+            } else if pctInt < 0 {
+                return "Based on typical \(category.rawValue.lowercased()) patterns, people tend to overestimate by \(abs(pctInt))%. TimeFlow suggests \(suggested) min instead of \(userEstimate) min."
+            } else {
+                return "Based on typical \(category.rawValue.lowercased()) patterns, your estimate looks accurate. TimeFlow keeps your estimate at \(suggested) min."
+            }
         }
     }
 }
