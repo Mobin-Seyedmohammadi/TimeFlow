@@ -437,68 +437,48 @@ struct AIEngine {
         category: TaskCategory,
         userEstimate: Int,
         history: [TimeFlowTask]
-    ) -> AISuggestion {
+    ) -> AISuggestion? {
         let categoryHistory = history.filter { $0.category == category && $0.actualDurationMinutes != nil }
+
+        // No data for this category — stay silent rather than make unfounded claims
+        guard !categoryHistory.isEmpty else { return nil }
 
         let factor: Double
         let isPersonalized: Bool
 
         if categoryHistory.count >= 2 {
-            // Use personal average: actual / userEstimate across all historical tasks
             let ratios = categoryHistory.compactMap { t -> Double? in
                 guard let a = t.actualDurationMinutes, t.userEstimateMinutes > 0 else { return nil }
                 return Double(a) / Double(t.userEstimateMinutes)
             }
-            factor = ratios.isEmpty ? category.aiAdjustmentFactor : ratios.reduce(0, +) / Double(ratios.count)
-            isPersonalized = !ratios.isEmpty
-        } else if categoryHistory.count == 1,
-                  let task = categoryHistory.first,
-                  let actual = task.actualDurationMinutes,
-                  task.userEstimateMinutes > 0 {
-            // Blend single personal data point with category default
-            let personalRatio = Double(actual) / Double(task.userEstimateMinutes)
-            factor = (personalRatio + category.aiAdjustmentFactor) / 2.0
-            isPersonalized = false
+            guard !ratios.isEmpty else { return nil }
+            factor = ratios.reduce(0, +) / Double(ratios.count)
+            isPersonalized = true
         } else {
-            factor = category.aiAdjustmentFactor
-            isPersonalized = false
+            // 1 task: use it directly (no blending with hardcoded defaults)
+            guard let task = categoryHistory.first,
+                  let actual = task.actualDurationMinutes,
+                  task.userEstimateMinutes > 0 else { return nil }
+            factor = Double(actual) / Double(task.userEstimateMinutes)
+            isPersonalized = true
         }
 
         let suggested = max(1, Int(Double(userEstimate) * factor))
         let confidence: AIConfidence = categoryHistory.count >= 3 ? .high : categoryHistory.count >= 1 ? .medium : .low
         let pct = Int((factor - 1.0) * 100)
-        let explanation = explanationFor(category: category, pct: pct, isPersonalized: isPersonalized, taskCount: categoryHistory.count)
+        let explanation = explanationFor(category: category, pct: pct, taskCount: categoryHistory.count)
 
         return AISuggestion(suggestedMinutes: suggested, confidence: confidence, explanation: explanation)
     }
 
-    private static func explanationFor(category: TaskCategory, pct: Int, isPersonalized: Bool, taskCount: Int) -> String {
-        if isPersonalized {
-            if pct > 0 {
-                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) tasks, you typically take \(pct)% longer than your first estimate. This suggestion adjusts for your personal pattern."
-            } else if pct < 0 {
-                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) tasks, you tend to finish \(abs(pct))% faster than your estimate. This suggestion trims your estimate slightly."
-            } else {
-                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) tasks, your estimates are spot on! This suggestion keeps your original estimate."
-            }
-        }
-        let buffer = pct >= 0 ? "\(pct)% more time" : "\(abs(pct))% less time"
-        let dataNote = taskCount == 1 ? " (1 personal data point blended with category average)" : ""
-        switch category {
-        case .study:
-            return "Study sessions tend to involve deeper thinking and unexpected distractions. Adding \(buffer) helps account for this.\(dataNote)"
-        case .transportation:
-            return "Transportation tasks are unpredictable. Traffic and delays mean commutes typically take \(buffer) than expected.\(dataNote)"
-        case .grocery:
-            return "Grocery trips usually take \(buffer) than planned. Browsing, queues, and forgotten items add up quickly.\(dataNote)"
-        case .workOrganization:
-            return "Organizing work or notes typically takes \(buffer) than planned. It's easy to underestimate the details involved.\(dataNote)"
-        case .exercise:
-            return "Exercise estimates are usually fairly accurate. Adding \(buffer) covers warm-up, cool-down, and small delays.\(dataNote)"
-        case .home:
-            return "Home tasks often take \(buffer) than expected. Small interruptions and extra steps add up.\(dataNote)"
-        case .other:
-            return "TimeFlow suggests adding \(buffer) as a general buffer. Adjust based on your experience with this type of task.\(dataNote)"
+    private static func explanationFor(category: TaskCategory, pct: Int, taskCount: Int) -> String {
+        let taskWord = taskCount == 1 ? "task" : "tasks"
+        if pct > 0 {
+            return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), you typically take \(pct)% longer than your first estimate. This suggestion adjusts for your personal pattern."
+        } else if pct < 0 {
+            return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), you tend to finish \(abs(pct))% faster than your estimate. This suggestion trims your estimate slightly."
+        } else {
+            return "Based on your \(taskCount) past \(category.rawValue.lowercased()) \(taskWord), your estimates are accurate. This suggestion matches your original estimate."
         }
     }
 }
