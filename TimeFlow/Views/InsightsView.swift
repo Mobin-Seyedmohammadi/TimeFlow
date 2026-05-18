@@ -51,7 +51,12 @@ struct InsightsView: View {
                             SectionCard(title: "By Category", icon: "chart.bar.fill", iconColor: .tfBlue) {
                                 VStack(spacing: 10) {
                                     ForEach(categoryStats(), id: \.category.id) { stat in
-                                        categoryRow(stat)
+                                        NavigationLink {
+                                            CategoryDetailView(category: stat.category)
+                                        } label: {
+                                            categoryRow(stat)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
                                     }
                                 }
                             }
@@ -151,18 +156,21 @@ struct InsightsView: View {
     private struct CategoryStat {
         let category: TaskCategory
         let count: Int
-        let avgDiffMinutes: Double
+        let avgDiffPct: Double
     }
 
     private func categoryStats() -> [CategoryStat] {
         var dict: [TaskCategory: [TimeFlowTask]] = [:]
-        for task in vm.completedTasks {
+        for task in vm.completedTasks where task.actualDurationMinutes != nil {
             dict[task.category, default: []].append(task)
         }
         return dict.map { element in
-            let diffs = element.value.compactMap { $0.estimationDifferenceMinutes.map { Double($0) } }
-            let avg = diffs.isEmpty ? 0 : diffs.reduce(0, +) / Double(diffs.count)
-            return CategoryStat(category: element.key, count: element.value.count, avgDiffMinutes: avg)
+            let pcts = element.value.compactMap { t -> Double? in
+                guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
+                return Double(a - t.finalEstimateMinutes) / Double(t.finalEstimateMinutes) * 100
+            }
+            let avg = pcts.isEmpty ? 0.0 : pcts.reduce(0, +) / Double(pcts.count)
+            return CategoryStat(category: element.key, count: element.value.count, avgDiffPct: avg)
         }
         .sorted { $0.count > $1.count }
     }
@@ -184,11 +192,15 @@ struct InsightsView: View {
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
 
-            let diff = stat.avgDiffMinutes
-            Text(diff >= 0 ? "+\(Int(diff)) min avg" : "\(Int(diff)) min avg")
+            let pct = Int(stat.avgDiffPct.rounded())
+            Text(pct >= 0 ? "+\(pct)%" : "\(pct)%")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(abs(diff) <= 3 ? Color(hex: "059669") : (diff > 0 ? .tfOrange : .tfBlue))
-                .frame(width: 80, alignment: .trailing)
+                .foregroundColor(abs(pct) <= 5 ? Color(hex: "059669") : (pct > 0 ? .tfOrange : .tfBlue))
+                .frame(width: 46, alignment: .trailing)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary.opacity(0.5))
         }
     }
 

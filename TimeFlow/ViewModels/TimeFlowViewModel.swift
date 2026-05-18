@@ -41,26 +41,26 @@ class TimeFlowViewModel: ObservableObject {
 
         var result: [Insight] = []
 
-        // Overall pattern if 3+ tasks: avg(actual - finalEstimate) in minutes
+        // Overall pattern if 3+ tasks: avg((actual - estimate) / estimate * 100)
         if doneTasks.count >= 3 {
-            let diffs = doneTasks.compactMap { t -> Int? in
-                guard let a = t.actualDurationMinutes else { return nil }
-                return a - t.finalEstimateMinutes
+            let pcts = doneTasks.compactMap { t -> Double? in
+                guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
+                return Double(a - t.finalEstimateMinutes) / Double(t.finalEstimateMinutes) * 100
             }
-            if !diffs.isEmpty {
-                let avg = Double(diffs.reduce(0, +)) / Double(diffs.count)
-                let diffMin = Int(avg.rounded())
-                if diffMin > 3 {
-                    result.append(Insight(title: "Overall Pattern", message: "Across your \(doneTasks.count) completed tasks, you tend to underestimate by \(diffMin) min on average.", icon: "chart.line.uptrend.xyaxis", type: .pattern))
-                } else if diffMin < -3 {
-                    result.append(Insight(title: "Overall Pattern", message: "Across your \(doneTasks.count) completed tasks, you tend to overestimate by \(abs(diffMin)) min on average.", icon: "chart.line.uptrend.xyaxis", type: .pattern))
+            if !pcts.isEmpty {
+                let avgPct = pcts.reduce(0, +) / Double(pcts.count)
+                let pctInt = Int(avgPct.rounded())
+                if pctInt > 5 {
+                    result.append(Insight(title: "Overall Pattern", message: "Across your \(doneTasks.count) completed tasks, you tend to underestimate by \(pctInt)% on average.", icon: "chart.line.uptrend.xyaxis", type: .pattern))
+                } else if pctInt < -5 {
+                    result.append(Insight(title: "Overall Pattern", message: "Across your \(doneTasks.count) completed tasks, you tend to overestimate by \(abs(pctInt))% on average.", icon: "chart.line.uptrend.xyaxis", type: .pattern))
                 } else {
-                    result.append(Insight(title: "Overall Accuracy", message: "Across your \(doneTasks.count) completed tasks, your estimates are very accurate — within \(abs(diffMin)) min on average!", icon: "chart.line.uptrend.xyaxis", type: .accuracy))
+                    result.append(Insight(title: "Overall Accuracy", message: "Across your \(doneTasks.count) completed tasks, your estimates are very accurate — within \(abs(pctInt))% on average!", icon: "chart.line.uptrend.xyaxis", type: .accuracy))
                 }
             }
         }
 
-        // Per-category insights: avg(actual - finalEstimate), simple mean
+        // Per-category insights: avg((actual - estimate) / estimate * 100)
         var categoryGroups: [TaskCategory: [TimeFlowTask]] = [:]
         for task in doneTasks { categoryGroups[task.category, default: []].append(task) }
 
@@ -77,42 +77,42 @@ class TimeFlowViewModel: ObservableObject {
                 }
                 result.append(Insight(title: category.rawValue, message: body, icon: category.icon, type: .pattern))
             } else if tasks.count >= 2 {
-                let diffs = tasks.compactMap { t -> Int? in
-                    guard let a = t.actualDurationMinutes else { return nil }
-                    return a - t.finalEstimateMinutes
+                let pcts = tasks.compactMap { t -> Double? in
+                    guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
+                    return Double(a - t.finalEstimateMinutes) / Double(t.finalEstimateMinutes) * 100
                 }
-                guard !diffs.isEmpty else { continue }
-                let avg = Double(diffs.reduce(0, +)) / Double(diffs.count)
-                let diffMin = Int(avg.rounded())
+                guard !pcts.isEmpty else { continue }
+                let avgPct = pcts.reduce(0, +) / Double(pcts.count)
+                let pctInt = Int(avgPct.rounded())
                 let body: String; let insightType: InsightType
-                if abs(diffMin) <= 3 {
-                    body = "You estimate \(category.rawValue.lowercased()) tasks very accurately — only \(abs(diffMin)) min off on average across \(tasks.count) tasks."
+                if abs(pctInt) <= 5 {
+                    body = "You estimate \(category.rawValue.lowercased()) tasks very accurately — within \(abs(pctInt))% on average across \(tasks.count) tasks."
                     insightType = .accuracy
-                } else if diffMin > 0 {
-                    body = "You underestimate \(category.rawValue.lowercased()) tasks by \(diffMin) min on average across \(tasks.count) tasks. Consider adding \(diffMin) min to your estimates."
+                } else if pctInt > 0 {
+                    body = "You underestimate \(category.rawValue.lowercased()) tasks by \(pctInt)% on average across \(tasks.count) tasks."
                     insightType = .pattern
                 } else {
-                    body = "You overestimate \(category.rawValue.lowercased()) tasks by \(abs(diffMin)) min on average across \(tasks.count) tasks. You can trim \(abs(diffMin)) min from your estimates."
+                    body = "You overestimate \(category.rawValue.lowercased()) tasks by \(abs(pctInt))% on average across \(tasks.count) tasks."
                     insightType = .pattern
                 }
                 result.append(Insight(title: category.rawValue, message: body, icon: category.icon, type: insightType))
             }
         }
 
-        // Best category: lowest avg absolute minute error, only when 2+ categories have 2+ tasks
+        // Best category: lowest avg absolute % error, only when 2+ categories each have 2+ tasks
         let multiTaskCategories = categoryGroups.filter { $0.value.count >= 2 }
         if multiTaskCategories.count >= 2 {
             let categoryAccuracy: [(TaskCategory, Double)] = multiTaskCategories.compactMap { cat, tasks in
-                let absDiffs = tasks.compactMap { t -> Double? in
-                    guard let a = t.actualDurationMinutes else { return nil }
-                    return Double(abs(a - t.finalEstimateMinutes))
+                let absPcts = tasks.compactMap { t -> Double? in
+                    guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
+                    return abs(Double(a - t.finalEstimateMinutes) / Double(t.finalEstimateMinutes) * 100)
                 }
-                guard !absDiffs.isEmpty else { return nil }
-                return (cat, absDiffs.reduce(0, +) / Double(absDiffs.count))
+                guard !absPcts.isEmpty else { return nil }
+                return (cat, absPcts.reduce(0, +) / Double(absPcts.count))
             }
             if let best = categoryAccuracy.min(by: { $0.1 < $1.1 }) {
-                let diffMin = Int(best.1.rounded())
-                result.append(Insight(title: "Best Category", message: "You estimate \(best.0.rawValue.lowercased()) tasks most accurately — only \(diffMin) min off on average.", icon: best.0.icon, type: .accuracy))
+                let pctInt = Int(best.1.rounded())
+                result.append(Insight(title: "Best Category", message: "You estimate \(best.0.rawValue.lowercased()) tasks most accurately — only \(pctInt)% off on average.", icon: best.0.icon, type: .accuracy))
             }
         }
 
