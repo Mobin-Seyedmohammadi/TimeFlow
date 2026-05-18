@@ -7,7 +7,7 @@ struct InsightsView: View {
         ZStack {
             Color.tfBackground.ignoresSafeArea()
 
-            if vm.completedTasks.isEmpty && vm.insights.allSatisfy({ $0.type == .aiNote }) {
+            if vm.completedTasks.isEmpty {
                 emptyState
             } else {
                 ScrollView {

@@ -173,7 +173,7 @@ struct SettingsView: View {
             Button("Reset", role: .destructive) { vm.resetPrototypeData() }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This will restore all mock data and clear any completed tasks from this session. The active task will also be discarded.")
+            Text("This will permanently clear all saved task history and start fresh. The active task will also be discarded.")
         }
     }
 

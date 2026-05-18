@@ -12,9 +12,118 @@ class TimeFlowViewModel: ObservableObject {
     /// 1 real second = 1 simulated minute in prototype mode
     var prototypeSecondsPerSimulatedMinute: Double = 1.0
 
+    // MARK: - Persistence
+    private let historyKey = "timeflow_completed_tasks"
+
     // MARK: - Data
-    @Published var completedTasks: [TimeFlowTask] = MockData.completedTasks
-    @Published var insights: [Insight] = MockData.insights
+    @Published var completedTasks: [TimeFlowTask] = []
+
+    // MARK: - Init
+
+    init() {
+        if let data = UserDefaults.standard.data(forKey: historyKey),
+           let saved = try? JSONDecoder().decode([TimeFlowTask].self, from: data) {
+            completedTasks = saved
+        }
+    }
+
+    private func saveHistory() {
+        if let data = try? JSONEncoder().encode(completedTasks) {
+            UserDefaults.standard.set(data, forKey: historyKey)
+        }
+    }
+
+    // MARK: - Computed Insights
+
+    var insights: [Insight] {
+        let doneTasks = completedTasks.filter { $0.actualDurationMinutes != nil }
+        guard !doneTasks.isEmpty else { return [] }
+
+        var result: [Insight] = []
+
+        // Overall pattern if 3+ tasks
+        if doneTasks.count >= 3 {
+            let errors = doneTasks.compactMap { t -> Double? in
+                guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
+                return (Double(a) / Double(t.finalEstimateMinutes) - 1.0) * 100
+            }
+            if !errors.isEmpty {
+                let avg = errors.reduce(0, +) / Double(errors.count)
+                let pct = Int(avg.rounded())
+                if pct > 5 {
+                    result.append(Insight(title: "Overall Pattern", message: "Across your \(doneTasks.count) completed tasks, you tend to underestimate by \(pct)% on average.", icon: "chart.line.uptrend.xyaxis", type: .pattern))
+                } else if pct < -5 {
+                    result.append(Insight(title: "Overall Pattern", message: "Across your \(doneTasks.count) completed tasks, you tend to overestimate by \(abs(pct))% on average.", icon: "chart.line.uptrend.xyaxis", type: .pattern))
+                } else {
+                    result.append(Insight(title: "Overall Accuracy", message: "Across your \(doneTasks.count) completed tasks, your estimates are very accurate — within \(abs(pct))% on average!", icon: "chart.line.uptrend.xyaxis", type: .accuracy))
+                }
+            }
+        }
+
+        // Per-category insights
+        var categoryGroups: [TaskCategory: [TimeFlowTask]] = [:]
+        for task in doneTasks { categoryGroups[task.category, default: []].append(task) }
+
+        for (category, tasks) in categoryGroups.sorted(by: { $0.value.count > $1.value.count }) {
+            if tasks.count == 1, let task = tasks.first, let actual = task.actualDurationMinutes {
+                let diff = actual - task.finalEstimateMinutes
+                let body: String
+                if abs(diff) <= 3 {
+                    body = "Your one \(category.rawValue.lowercased()) task was estimated accurately (\(actual) min actual). Complete more tasks to see a pattern."
+                } else if diff > 0 {
+                    body = "Your one \(category.rawValue.lowercased()) task ran \(diff) min over (\(actual) min actual vs \(task.finalEstimateMinutes) min planned). Complete more tasks to see a pattern."
+                } else {
+                    body = "Your one \(category.rawValue.lowercased()) task finished \(abs(diff)) min early (\(actual) min actual vs \(task.finalEstimateMinutes) min planned). Complete more tasks to see a pattern."
+                }
+                result.append(Insight(title: category.rawValue, message: body, icon: category.icon, type: .pattern))
+            } else if tasks.count >= 2 {
+                let errors = tasks.compactMap { t -> Double? in
+                    guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
+                    return (Double(a) / Double(t.finalEstimateMinutes) - 1.0) * 100
+                }
+                guard !errors.isEmpty else { continue }
+                // Recency-weighted average (index 0 = newest, gets highest weight)
+                let n = Double(errors.count)
+                var weightedSum = 0.0; var totalWeight = 0.0
+                for (i, e) in errors.enumerated() {
+                    let w = n - Double(i); weightedSum += e * w; totalWeight += w
+                }
+                let pct = Int((weightedSum / totalWeight).rounded())
+                let body: String; let type: InsightType
+                if abs(pct) <= 5 {
+                    body = "You estimate \(category.rawValue.lowercased()) tasks very accurately — only \(abs(pct))% off on average across \(tasks.count) tasks."
+                    type = .accuracy
+                } else if pct > 0 {
+                    body = "You underestimate \(category.rawValue.lowercased()) tasks by \(pct)% on average across \(tasks.count) tasks. Consider adding a \(pct)% buffer."
+                    type = .pattern
+                } else {
+                    body = "You overestimate \(category.rawValue.lowercased()) tasks by \(abs(pct))% on average across \(tasks.count) tasks. You can trim your estimates a bit."
+                    type = .pattern
+                }
+                result.append(Insight(title: category.rawValue, message: body, icon: category.icon, type: type))
+            }
+        }
+
+        // Best category badge when multiple categories have 2+ tasks
+        let multiTaskCategories = categoryGroups.filter { $0.value.count >= 2 }
+        if multiTaskCategories.count >= 2 {
+            let categoryAccuracy: [(TaskCategory, Double)] = multiTaskCategories.compactMap { cat, tasks in
+                let abs_errors = tasks.compactMap { t -> Double? in
+                    guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
+                    return abs(Double(a) / Double(t.finalEstimateMinutes) - 1.0)
+                }
+                guard !abs_errors.isEmpty else { return nil }
+                return (cat, abs_errors.reduce(0, +) / Double(abs_errors.count))
+            }
+            if let best = categoryAccuracy.min(by: { $0.1 < $1.1 }) {
+                let pct = Int((best.1 * 100).rounded())
+                result.append(Insight(title: "Best Category", message: "You estimate \(best.0.rawValue.lowercased()) tasks most accurately — only \(pct)% off on average.", icon: best.0.icon, type: .accuracy))
+            }
+        }
+
+        result.append(Insight(title: "AI Learning Note", message: "TimeFlow uses your completed tasks to adjust suggestions. The more tasks you complete, the more personalized the AI becomes.", icon: "cpu", type: .aiNote))
+        return result
+    }
 
     // MARK: - Active Task
     @Published var activeTask: TimeFlowTask? = nil
@@ -80,7 +189,7 @@ class TimeFlowViewModel: ObservableObject {
         return "Your estimates are \(pct)% off on average. Keep going!"
     }
 
-    var recentInsight: Insight? { insights.first }
+    var recentInsight: Insight? { insights.first(where: { $0.type != .aiNote }) ?? insights.first }
 
     // MARK: - Task Creation
 
@@ -242,6 +351,7 @@ class TimeFlowViewModel: ObservableObject {
     func saveReflection() {
         guard let task = completedTaskForReflection else { return }
         completedTasks.insert(task, at: 0)
+        saveHistory()
         completedTaskForReflection = nil
         showReflection = false
     }
@@ -251,8 +361,8 @@ class TimeFlowViewModel: ObservableObject {
         isTimerRunning = false
         activeTask = nil
         resetTimerState()
-        completedTasks = MockData.completedTasks
-        insights = MockData.insights
+        completedTasks = []
+        saveHistory()
         completedTaskForReflection = nil
         showActiveTask = false
         showReflection = false
@@ -328,34 +438,67 @@ struct AIEngine {
         userEstimate: Int,
         history: [TimeFlowTask]
     ) -> AISuggestion {
-        let factor = category.aiAdjustmentFactor
+        let categoryHistory = history.filter { $0.category == category && $0.actualDurationMinutes != nil }
+
+        let factor: Double
+        let isPersonalized: Bool
+
+        if categoryHistory.count >= 2 {
+            // Use personal average: actual / userEstimate across all historical tasks
+            let ratios = categoryHistory.compactMap { t -> Double? in
+                guard let a = t.actualDurationMinutes, t.userEstimateMinutes > 0 else { return nil }
+                return Double(a) / Double(t.userEstimateMinutes)
+            }
+            factor = ratios.isEmpty ? category.aiAdjustmentFactor : ratios.reduce(0, +) / Double(ratios.count)
+            isPersonalized = !ratios.isEmpty
+        } else if categoryHistory.count == 1,
+                  let task = categoryHistory.first,
+                  let actual = task.actualDurationMinutes,
+                  task.userEstimateMinutes > 0 {
+            // Blend single personal data point with category default
+            let personalRatio = Double(actual) / Double(task.userEstimateMinutes)
+            factor = (personalRatio + category.aiAdjustmentFactor) / 2.0
+            isPersonalized = false
+        } else {
+            factor = category.aiAdjustmentFactor
+            isPersonalized = false
+        }
+
         let suggested = max(1, Int(Double(userEstimate) * factor))
-
-        let categoryHistory = history.filter { $0.category == category }
         let confidence: AIConfidence = categoryHistory.count >= 3 ? .high : categoryHistory.count >= 1 ? .medium : .low
-
         let pct = Int((factor - 1.0) * 100)
-        let explanation = explanationFor(category: category, pct: pct, confidence: confidence)
+        let explanation = explanationFor(category: category, pct: pct, isPersonalized: isPersonalized, taskCount: categoryHistory.count)
 
         return AISuggestion(suggestedMinutes: suggested, confidence: confidence, explanation: explanation)
     }
 
-    private static func explanationFor(category: TaskCategory, pct: Int, confidence: AIConfidence) -> String {
+    private static func explanationFor(category: TaskCategory, pct: Int, isPersonalized: Bool, taskCount: Int) -> String {
+        if isPersonalized {
+            if pct > 0 {
+                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) tasks, you typically take \(pct)% longer than your first estimate. This suggestion adjusts for your personal pattern."
+            } else if pct < 0 {
+                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) tasks, you tend to finish \(abs(pct))% faster than your estimate. This suggestion trims your estimate slightly."
+            } else {
+                return "Based on your \(taskCount) past \(category.rawValue.lowercased()) tasks, your estimates are spot on! This suggestion keeps your original estimate."
+            }
+        }
+        let buffer = pct >= 0 ? "\(pct)% more time" : "\(abs(pct))% less time"
+        let dataNote = taskCount == 1 ? " (1 personal data point blended with category average)" : ""
         switch category {
         case .study:
-            return "Based on similar study tasks, you often need around \(pct)% more time than your first estimate. Study sessions tend to involve deeper thinking and unexpected distractions."
+            return "Study sessions tend to involve deeper thinking and unexpected distractions. Adding \(buffer) helps account for this.\(dataNote)"
         case .transportation:
-            return "Transportation tasks are unpredictable. Based on your history, commutes typically take \(pct)% longer than expected due to traffic and delays."
+            return "Transportation tasks are unpredictable. Traffic and delays mean commutes typically take \(buffer) than expected.\(dataNote)"
         case .grocery:
-            return "Grocery trips usually take \(pct)% longer than planned. Browsing, queues, and forgotten items add up quickly."
+            return "Grocery trips usually take \(buffer) than planned. Browsing, queues, and forgotten items add up quickly.\(dataNote)"
         case .workOrganization:
-            return "Organizing work or notes typically takes \(pct)% more than planned. It's easy to underestimate the details and decisions involved."
+            return "Organizing work or notes typically takes \(buffer) than planned. It's easy to underestimate the details involved.\(dataNote)"
         case .exercise:
-            return "Your exercise estimates are quite accurate. TimeFlow suggests only a small \(pct)% buffer for warm-up, cool-down, and any unexpected delays."
+            return "Exercise estimates are usually fairly accurate. Adding \(buffer) covers warm-up, cool-down, and small delays.\(dataNote)"
         case .home:
-            return "Home tasks often take \(pct)% more than expected. Small interruptions and discovering extra steps add up."
+            return "Home tasks often take \(buffer) than expected. Small interruptions and extra steps add up.\(dataNote)"
         case .other:
-            return "TimeFlow suggests adding \(pct)% extra time as a general buffer. Adjust based on your own experience with this type of task."
+            return "TimeFlow suggests adding \(buffer) as a general buffer. Adjust based on your experience with this type of task.\(dataNote)"
         }
     }
 }
