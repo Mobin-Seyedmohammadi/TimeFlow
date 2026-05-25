@@ -24,9 +24,41 @@ struct AISuggestionCard: View {
         self.onAdjust = onAdjust
     }
 
+    // MARK: - Confidence badge
+
+    private var badgeLabel: String {
+        switch suggestion.confidence {
+        case .low:
+            return suggestion.dataSource == "General default" ? "Default" : "1 task"
+        case .medium:
+            return "Low confidence"
+        case .high:
+            return "Good confidence"
+        }
+    }
+
+    private var badgeBackground: Color {
+        switch suggestion.confidence {
+        case .low:    return Color(.systemGray5)
+        case .medium: return Color(hex: "D97706").opacity(0.15)
+        case .high:   return Color.tfBlue.opacity(0.12)
+        }
+    }
+
+    private var badgeForeground: Color {
+        switch suggestion.confidence {
+        case .low:    return .secondary
+        case .medium: return Color(hex: "D97706")
+        case .high:   return .tfBlue
+        }
+    }
+
+    // MARK: - Body
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Header
+
+            // ── Header ─────────────────────────────────────────────────────────
             HStack(spacing: 8) {
                 Image(systemName: "cpu")
                     .font(.system(size: 14, weight: .bold))
@@ -35,38 +67,51 @@ struct AISuggestionCard: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.tfBlue)
                 Spacer()
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(suggestion.confidence.color)
-                        .frame(width: 7, height: 7)
-                    Text("Confidence: \(suggestion.confidence.rawValue)")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
+                // Confidence badge
+                Text(badgeLabel)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(badgeForeground)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(badgeBackground)
+                    .cornerRadius(7)
             }
 
-            // Suggested time vs user estimate
-            HStack(alignment: .bottom, spacing: 0) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("TimeFlow suggests")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                    Text("\(suggestion.suggestedMinutes) min")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundColor(.tfDark)
+            // ── Main suggested time ────────────────────────────────────────────
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .bottom, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("TimeFlow suggests")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                        Text("\(suggestion.suggestedMinutes) min")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(.tfDark)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Your estimate")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                        Text("\(userEstimate) min")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.secondary)
+                    }
                 }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Your estimate")
-                        .font(.system(size: 12))
+
+                // Prediction interval
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.left.and.right")
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
-                    Text("\(userEstimate) min")
-                        .font(.system(size: 20, weight: .semibold))
+                    Text("\(suggestion.confidencePercent)% chance: \(suggestion.lowBound)–\(suggestion.highBound) min")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.secondary)
                 }
+                .padding(.top, 2)
             }
 
-            // Difference indicator
+            // ── Difference indicator ───────────────────────────────────────────
             let diff = suggestion.suggestedMinutes - userEstimate
             if diff != 0 {
                 HStack(spacing: 6) {
@@ -81,7 +126,7 @@ struct AISuggestionCard: View {
                 }
             }
 
-            // Explanation
+            // ── Explanation ────────────────────────────────────────────────────
             if showExplanation {
                 Text(suggestion.explanation)
                     .font(.system(size: 13))
@@ -92,12 +137,12 @@ struct AISuggestionCard: View {
                     .cornerRadius(8)
             }
 
-            // Disclaimer
-            Text("This is a prototype suggestion. You can adjust it freely.")
+            // ── Data source ────────────────────────────────────────────────────
+            Text("Source: \(suggestion.dataSource)")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
 
-            // Actions
+            // ── Actions ────────────────────────────────────────────────────────
             VStack(spacing: 8) {
                 Button(action: onUse) {
                     HStack {

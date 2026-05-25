@@ -36,39 +36,82 @@ enum TaskCategory: String, CaseIterable, Codable, Identifiable {
 
     var icon: String {
         switch self {
-        case .study: return "book.fill"
-        case .transportation: return "car.fill"
-        case .grocery: return "cart.fill"
+        case .study:            return "book.fill"
+        case .transportation:   return "car.fill"
+        case .grocery:          return "cart.fill"
         case .workOrganization: return "briefcase.fill"
-        case .exercise: return "figure.run"
-        case .home: return "house.fill"
-        case .other: return "square.grid.2x2.fill"
+        case .exercise:         return "figure.run"
+        case .home:             return "house.fill"
+        case .other:            return "square.grid.2x2.fill"
         }
     }
 
     var color: Color {
         switch self {
-        case .study: return .tfBlue
-        case .transportation: return Color(hex: "7C3AED")
-        case .grocery: return Color(hex: "059669")
+        case .study:            return .tfBlue
+        case .transportation:   return Color(hex: "7C3AED")
+        case .grocery:          return Color(hex: "059669")
         case .workOrganization: return Color(hex: "D97706")
-        case .exercise: return Color(hex: "DC2626")
-        case .home: return Color(hex: "2563EB")
-        case .other: return Color(hex: "6B7280")
+        case .exercise:         return Color(hex: "DC2626")
+        case .home:             return Color(hex: "2563EB")
+        case .other:            return Color(hex: "6B7280")
         }
     }
 
-    var aiAdjustmentFactor: Double {
+    /// Used ONLY when n == 0 (no personal history). Never used when personal history exists.
+    var defaultAdjustmentFactor: Double {
         switch self {
-        case .study: return 1.30
-        case .transportation: return 1.35
-        case .grocery: return 1.25
+        case .study:            return 1.30
+        case .transportation:   return 1.28
+        case .grocery:          return 1.25
         case .workOrganization: return 1.20
-        case .exercise: return 1.05
-        case .home: return 1.15
-        case .other: return 1.15
+        case .exercise:         return 1.08
+        case .home:             return 1.15
+        case .other:            return 1.15
         }
     }
+}
+
+// MARK: - RegressionStats
+/// Stores sufficient statistics for online linear regression.
+/// x = userEstimateMinutes, y = actualDurationMinutes
+struct RegressionStats: Codable {
+    var n: Double = 0
+    var sumX: Double = 0
+    var sumY: Double = 0
+    var sumXX: Double = 0
+    var sumXY: Double = 0
+    var sumYY: Double = 0
+
+    mutating func update(x: Double, y: Double) {
+        n += 1
+        sumX += x
+        sumY += y
+        sumXX += x * x
+        sumXY += x * y
+        sumYY += y * y
+    }
+}
+
+// MARK: - PredictionConfidence
+enum PredictionConfidence {
+    case none       // n == 0
+    case veryLow    // n == 1
+    case low        // n == 2
+    case medium     // n 3–5
+    case high       // n 6–9
+    case veryHigh   // n >= 10
+}
+
+// MARK: - PredictionResult
+struct PredictionResult {
+    let pointEstimate: Int        // always >= 1
+    let lowBound: Int             // always >= 1
+    let highBound: Int            // always > lowBound
+    let confidencePercent: Int    // e.g. 80, 85, 90, 95 — from user setting
+    let confidence: PredictionConfidence
+    let explanation: String
+    let dataSource: String
 }
 
 // MARK: - TaskStatus
@@ -82,23 +125,23 @@ enum TaskStatus: String, Codable {
 
     var icon: String {
         switch self {
-        case .draft: return "pencil.circle"
-        case .ready: return "play.circle"
-        case .active: return "timer"
-        case .paused: return "pause.circle.fill"
+        case .draft:     return "pencil.circle"
+        case .ready:     return "play.circle"
+        case .active:    return "timer"
+        case .paused:    return "pause.circle.fill"
         case .completed: return "checkmark.circle.fill"
-        case .overtime: return "exclamationmark.triangle.fill"
+        case .overtime:  return "exclamationmark.triangle.fill"
         }
     }
 
     var color: Color {
         switch self {
-        case .draft: return .secondary
-        case .ready: return .tfBlue
-        case .active: return .tfBlue
-        case .paused: return Color(hex: "D97706")
+        case .draft:     return .secondary
+        case .ready:     return .tfBlue
+        case .active:    return .tfBlue
+        case .paused:    return Color(hex: "D97706")
         case .completed: return Color(hex: "059669")
-        case .overtime: return .tfOrange
+        case .overtime:  return .tfOrange
         }
     }
 }
@@ -119,9 +162,9 @@ enum AIConfidence: String, Codable {
 
     var color: Color {
         switch self {
-        case .low: return .secondary
+        case .low:    return .secondary
         case .medium: return Color(hex: "D97706")
-        case .high: return Color(hex: "059669")
+        case .high:   return Color(hex: "059669")
         }
     }
 }
@@ -129,8 +172,12 @@ enum AIConfidence: String, Codable {
 // MARK: - AISuggestion
 struct AISuggestion: Equatable {
     let suggestedMinutes: Int
+    let lowBound: Int
+    let highBound: Int
+    let confidencePercent: Int
     let confidence: AIConfidence
     let explanation: String
+    let dataSource: String
 }
 
 // MARK: - TimeFlowTask

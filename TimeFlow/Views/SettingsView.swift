@@ -8,6 +8,10 @@ struct SettingsView: View {
         ("80%", 0.80), ("85%", 0.85), ("90%", 0.90), ("95%", 0.95)
     ]
 
+    private let confidenceOptions: [(label: String, value: Int)] = [
+        ("80%", 80), ("85%", 85), ("90%", 90), ("95%", 95)
+    ]
+
     var body: some View {
         ZStack {
             Color.tfBackground.ignoresSafeArea()
@@ -60,6 +64,34 @@ struct SettingsView: View {
                             Label(cat.rawValue, systemImage: cat.icon).tag(cat)
                         }
                     }
+
+                    // Prediction interval confidence picker
+                    VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Prediction Interval Confidence")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.tfDark)
+                            Text("Higher confidence = wider interval range")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack(spacing: 8) {
+                            ForEach(confidenceOptions, id: \.label) { option in
+                                Button(action: { vm.predictionConfidence = option.value }) {
+                                    Text(option.label)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(vm.predictionConfidence == option.value ? .white : .tfBlue)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 38)
+                                        .background(vm.predictionConfidence == option.value ? Color.tfBlue : Color.tfBlue.opacity(0.08))
+                                        .cornerRadius(9)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+
                 } header: {
                     Text("AI Settings")
                 }
@@ -113,22 +145,22 @@ struct SettingsView: View {
                         noteItem(
                             icon: "cpu",
                             color: .tfBlue,
-                            title: "Simulated AI",
-                            body: "The AI suggestions in TimeFlow are simulated using local rules and mock data. There is no real machine learning or server involved."
+                            title: "Regression AI",
+                            body: "The AI suggestions use online linear regression with sufficient statistics. Each completed task refines the model for that category — no external servers involved."
                         )
                         Divider()
                         noteItem(
                             icon: "externaldrive",
                             color: Color(hex: "7C3AED"),
                             title: "Local Data Only",
-                            body: "All data is stored locally on this device during the session. No data is sent to any server."
+                            body: "All data is stored locally on this device. No data is sent to any server."
                         )
                         Divider()
                         noteItem(
                             icon: "exclamationmark.triangle",
                             color: .tfOrange,
                             title: "Prototype Limitations",
-                            body: "Suggestions may be imperfect. The goal is to test the interaction flow and user understanding — not real AI accuracy."
+                            body: "Regression intervals widen at extremes of your data. The model improves with more completed tasks per category."
                         )
                         Divider()
                         noteItem(
@@ -152,10 +184,10 @@ struct SettingsView: View {
                                 .foregroundColor(.tfBlue)
                             VStack(alignment: .leading) {
                                 Text("TimeFlow").font(.system(size: 17, weight: .bold))
-                                Text("HCI Course Prototype • v1.0").font(.system(size: 12)).foregroundColor(.secondary)
+                                Text("HCI Course Prototype • v2.0").font(.system(size: 12)).foregroundColor(.secondary)
                             }
                         }
-                        Text("TimeFlow helps you compare your time estimates with AI suggestions, track actual duration, and reflect on your personal time estimation patterns.")
+                        Text("TimeFlow helps you compare your time estimates with AI suggestions, track actual duration, and reflect on your personal time estimation patterns using online linear regression.")
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
@@ -173,7 +205,7 @@ struct SettingsView: View {
             Button("Reset", role: .destructive) { vm.resetPrototypeData() }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This will permanently clear all saved task history and start fresh. The active task will also be discarded.")
+            Text("This will permanently clear all saved task history and regression stats. The active task will also be discarded.")
         }
     }
 

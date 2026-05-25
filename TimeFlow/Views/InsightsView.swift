@@ -50,7 +50,7 @@ struct InsightsView: View {
                             // Category breakdown
                             SectionCard(title: "By Category", icon: "chart.bar.fill", iconColor: .tfBlue) {
                                 VStack(spacing: 10) {
-                                    ForEach(categoryStats(), id: \.category.id) { stat in
+                                    ForEach(categoryStatsRows(), id: \.category.id) { stat in
                                         NavigationLink {
                                             CategoryDetailView(category: stat.category)
                                         } label: {
@@ -61,6 +61,9 @@ struct InsightsView: View {
                                 }
                             }
                             .padding(.horizontal, 16)
+
+                            // Regression Analysis section
+                            regressionSection
                         }
 
                         // Insight cards
@@ -79,6 +82,139 @@ struct InsightsView: View {
         .navigationBarTitleDisplayMode(.large)
     }
 
+    // MARK: - Regression Analysis
+
+    @ViewBuilder
+    private var regressionSection: some View {
+        // Show categories that have n >= 2 regression stats
+        let regressionCategories = TaskCategory.allCases.compactMap { cat -> (TaskCategory, RegressionStats)? in
+            guard let stats = vm.categoryStats[cat.rawValue], stats.n >= 2 else { return nil }
+            return (cat, stats)
+        }
+
+        if !regressionCategories.isEmpty {
+            SectionCard(title: "AI Pattern Analysis", icon: "function", iconColor: .tfBlue) {
+                VStack(spacing: 14) {
+                    ForEach(Array(regressionCategories.enumerated()), id: \.offset) { index, pair in
+                        let (category, stats) = pair
+                        if index > 0 { Divider() }
+                        regressionRow(category: category, stats: stats)
+                    }
+
+                    // Show categories with exactly 1 task
+                    let singleCategories = TaskCategory.allCases.filter { cat in
+                        vm.categoryStats[cat.rawValue]?.n == 1
+                    }
+                    if !singleCategories.isEmpty {
+                        if !regressionCategories.isEmpty { Divider() }
+                        ForEach(singleCategories) { cat in
+                            HStack(spacing: 10) {
+                                Image(systemName: cat.icon)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(cat.color)
+                                    .frame(width: 18)
+                                Text(cat.rawValue)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.tfDark)
+                                Spacer()
+                                Text("1 task — complete more for pattern analysis")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private func regressionRow(category: TaskCategory, stats: RegressionStats) -> some View {
+        let n    = stats.n
+        let sumX = stats.sumX
+        let sumY = stats.sumY
+        let Sxx  = stats.sumXX - (sumX * sumX) / n
+        let Sxy  = stats.sumXY - (sumX * sumY) / n
+        let Syy  = stats.sumYY - (stats.sumY * stats.sumY) / n
+
+        // Slope: for every 10 min planned → beta1*10 min actual
+        let beta1: Double = Sxx > 1e-9 ? (Sxy / Sxx) : (sumX > 1e-9 ? sumY / sumX : 1.0)
+        let per10 = max(1, Int((beta1 * 10).rounded()))
+
+        // R² = Sxy² / (Sxx * Syy), clamped to [0, 1]
+        let r2: Double
+        if Sxx > 1e-9 && Syy > 1e-9 {
+            r2 = min(1.0, max(0.0, (Sxy * Sxy) / (Sxx * Syy)))
+        } else {
+            r2 = 0.0
+        }
+        let accuracyPct = Int((r2 * 100).rounded())
+
+        // Bias at the average estimate level
+        let biasRaw = sumX > 1e-9 ? ((sumY / sumX) - 1.0) * 100 : 0.0
+        let biasPct = Int(biasRaw.rounded())
+
+        let biasText: String
+        if abs(biasPct) <= 5 {
+            biasText = "Estimates are accurate on average"
+        } else if biasPct > 0 {
+            biasText = "Tends to underestimate by ~\(biasPct)%"
+        } else {
+            biasText = "Tends to overestimate by ~\(abs(biasPct))%"
+        }
+
+        let biasColor: Color = abs(biasPct) <= 5 ? Color(hex: "059669") : (biasPct > 0 ? .tfOrange : .tfBlue)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: category.icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(category.color)
+                Text(category.rawValue)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.tfDark)
+                Spacer()
+                Text("Based on \(Int(n)) tasks")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 0) {
+                regressionStat(
+                    label: "Per 10 min planned",
+                    value: "\(per10) min actual",
+                    color: .tfDark
+                )
+                Divider().frame(height: 34)
+                regressionStat(
+                    label: "Model fit (R²)",
+                    value: "\(accuracyPct)%",
+                    color: accuracyPct >= 70 ? Color(hex: "059669") : Color(hex: "D97706")
+                )
+            }
+
+            Text(biasText)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(biasColor)
+        }
+    }
+
+    private func regressionStat(label: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: - Empty State
+
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "chart.line.uptrend.xyaxis")
@@ -95,14 +231,16 @@ struct InsightsView: View {
         }
     }
 
+    // MARK: - Insight Cards
+
     private func insightCard(_ insight: Insight) -> some View {
         let accentColor: Color = {
             switch insight.type {
-            case .improvement: return Color(hex: "059669")
-            case .pattern: return .tfOrange
+            case .improvement:    return Color(hex: "059669")
+            case .pattern:        return .tfOrange
             case .recommendation: return Color(hex: "7C3AED")
-            case .accuracy: return .tfBlue
-            case .aiNote: return .secondary
+            case .accuracy:       return .tfBlue
+            case .aiNote:         return .secondary
             }
         }()
 
@@ -137,11 +275,11 @@ struct InsightsView: View {
     private func typeLabel(_ type: InsightType, color: Color) -> some View {
         let label: String = {
             switch type {
-            case .improvement: return "Progress"
-            case .pattern: return "Pattern"
+            case .improvement:    return "Progress"
+            case .pattern:        return "Pattern"
             case .recommendation: return "Tip"
-            case .accuracy: return "Accuracy"
-            case .aiNote: return "AI Note"
+            case .accuracy:       return "Accuracy"
+            case .aiNote:         return "AI Note"
             }
         }()
         return Text(label)
@@ -153,13 +291,15 @@ struct InsightsView: View {
             .cornerRadius(6)
     }
 
-    private struct CategoryStat {
+    // MARK: - Category Stats (for "By Category" row list)
+
+    private struct CategoryStatRow {
         let category: TaskCategory
         let count: Int
         let avgDiffPct: Double
     }
 
-    private func categoryStats() -> [CategoryStat] {
+    private func categoryStatsRows() -> [CategoryStatRow] {
         var dict: [TaskCategory: [TimeFlowTask]] = [:]
         for task in vm.completedTasks where task.actualDurationMinutes != nil {
             dict[task.category, default: []].append(task)
@@ -170,12 +310,12 @@ struct InsightsView: View {
                 return Double(a - t.finalEstimateMinutes) / Double(t.finalEstimateMinutes) * 100
             }
             let avg = pcts.isEmpty ? 0.0 : pcts.reduce(0, +) / Double(pcts.count)
-            return CategoryStat(category: element.key, count: element.value.count, avgDiffPct: avg)
+            return CategoryStatRow(category: element.key, count: element.value.count, avgDiffPct: avg)
         }
         .sorted { $0.count > $1.count }
     }
 
-    private func categoryRow(_ stat: CategoryStat) -> some View {
+    private func categoryRow(_ stat: CategoryStatRow) -> some View {
         HStack(spacing: 12) {
             Image(systemName: stat.category.icon)
                 .font(.system(size: 14))
