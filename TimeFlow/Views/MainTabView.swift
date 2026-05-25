@@ -2,13 +2,12 @@ import SwiftUI
 
 struct MainTabView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
-    @State private var selectedTab: Int = 0
 
     var body: some View {
         ZStack(alignment: .top) {
 
             // ── Main tab content ───────────────────────────────────────────────
-            TabView(selection: $selectedTab) {
+            TabView(selection: $vm.selectedTab) {
                 NavigationStack {
                     TodayView()
                 }
@@ -69,7 +68,10 @@ struct MainTabView: View {
                 }
             }
             // Full-screen cover for reflection
-            .fullScreenCover(isPresented: $vm.showReflection) {
+            // onDismiss handles swipe-down: discards if not yet saved (nil-guarded, no-op after save)
+            .fullScreenCover(isPresented: $vm.showReflection, onDismiss: {
+                vm.discardReflection()
+            }) {
                 NavigationStack {
                     ReflectionView()
                 }

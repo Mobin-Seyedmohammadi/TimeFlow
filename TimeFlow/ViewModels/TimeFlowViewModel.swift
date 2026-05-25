@@ -176,6 +176,8 @@ class TimeFlowViewModel: ObservableObject {
     @Published var showActiveTask: Bool = false
     @Published var showReflection: Bool = false
     @Published var completedTaskForReflection: TimeFlowTask? = nil
+    /// Controls which tab is selected in MainTabView (0=Today, 1=History, 2=Insights, 3=Settings)
+    @Published var selectedTab: Int = 0
 
     // MARK: - Timer
     private var timerCancellable: AnyCancellable?
@@ -408,6 +410,8 @@ class TimeFlowViewModel: ObservableObject {
         showActiveTask = false
     }
 
+    /// Saves the completed task to history and updates regression stats.
+    /// This is the ONLY place where a task is persisted; nothing is saved on finishTask().
     func saveReflection() {
         guard let task = completedTaskForReflection else { return }
 
@@ -415,7 +419,6 @@ class TimeFlowViewModel: ObservableObject {
         let x = Double(task.userEstimateMinutes)
         if let actualMinutes = task.actualDurationMinutes {
             let y = Double(actualMinutes)
-            // Only update stats with valid positive values
             if x > 0 && y > 0 {
                 categoryStats[task.category.rawValue, default: RegressionStats()].update(x: x, y: y)
             }
@@ -423,6 +426,15 @@ class TimeFlowViewModel: ObservableObject {
 
         completedTasks.insert(task, at: 0)
         saveHistory()
+        // Clear BEFORE setting showReflection = false so onDismiss is a no-op
+        completedTaskForReflection = nil
+        showReflection = false
+    }
+
+    /// Discards the pending reflection without saving anything.
+    /// Safe to call even if the task was already saved (nil-guarded).
+    func discardReflection() {
+        guard completedTaskForReflection != nil else { return }
         completedTaskForReflection = nil
         showReflection = false
     }
@@ -454,6 +466,7 @@ class TimeFlowViewModel: ObservableObject {
         showReflection = false
         showNewTaskSheet = false
         showEstimateReview = false
+        selectedTab = 0
     }
 
     // MARK: - Reflection Helpers

@@ -3,9 +3,20 @@ import SwiftUI
 struct ReflectionView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
 
+    // Alert state for unsaved reflection prompts
+    @State private var showUnsavedAlert = false
+    @State private var pendingAction: PendingAction = .none
+
+    private enum PendingAction {
+        case none, startNewTask, viewInsights
+    }
+
+    /// True while the user has not yet tapped "Save Reflection".
+    private var isUnsaved: Bool { vm.completedTaskForReflection != nil }
+
     var body: some View {
         ScrollView {
-            if let task = vm.completedTaskForReflection {
+            if let task = vm.completedTaskForReflection ?? savedTaskSnapshot {
                 VStack(spacing: 20) {
                     // Completed header
                     VStack(spacing: 12) {
@@ -21,6 +32,22 @@ struct ReflectionView: View {
                         StatusChip(category: task.category)
                     }
                     .padding(.top, 16)
+
+                    // Unsaved reminder banner
+                    if isUnsaved {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(Color(hex: "D97706"))
+                            Text("Tap \"Save Reflection\" to add this task to your history.")
+                                .font(.system(size: 13))
+                                .foregroundColor(Color(hex: "D97706"))
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(hex: "D97706").opacity(0.10))
+                        .cornerRadius(10)
+                        .padding(.horizontal, 16)
+                    }
 
                     // Time breakdown card
                     TimeFlowCard {
@@ -91,7 +118,7 @@ struct ReflectionView: View {
                     }
                     .padding(.horizontal, 16)
 
-                    // All estimates reference (Recognition over Recall)
+                    // Full comparison card
                     TimeFlowCard {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Full Comparison")
@@ -119,7 +146,7 @@ struct ReflectionView: View {
                     }
                     .padding(.horizontal, 16)
 
-                    Spacer(minLength: 140)
+                    Spacer(minLength: 160)
                 }
             } else {
                 VStack(spacing: 12) {
@@ -136,20 +163,125 @@ struct ReflectionView: View {
         .background(Color.tfBackground.ignoresSafeArea())
         .navigationTitle("Reflection")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            // Snapshot once; kept alive for display during dismiss animation after saving
+            if let task = vm.completedTaskForReflection {
+                savedTaskSnapshot = task
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                // Discard button — explicitly exits without saving
+                Button {
+                    vm.discardReflection()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             BottomActionBar {
-                PrimaryButton("Save Reflection", icon: "checkmark.circle.fill") {
-                    vm.saveReflection()
-                }
-                PrimaryButton("Start Another Task", icon: "plus.circle", style: .outline) {
-                    vm.saveReflection()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        vm.startNewTask()
+                VStack(spacing: 8) {
+                    // Primary: Save — the ONLY path that persists to history
+                    PrimaryButton("Save Reflection", icon: "checkmark.circle.fill") {
+                        vm.saveReflection()
+                    }
+
+                    // Start Another Task — prompts if unsaved
+                    PrimaryButton("Start Another Task", icon: "plus.circle", style: .outline) {
+                        if isUnsaved {
+                            pendingAction = .startNewTask
+                            showUnsavedAlert = true
+                        } else {
+                            launchNewTask()
+                        }
+                    }
+
+                    // View Insights — prompts if unsaved
+                    Button {
+                        if isUnsaved {
+                            pendingAction = .viewInsights
+                            showUnsavedAlert = true
+                        } else {
+                            navigateToInsights()
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .font(.system(size: 13))
+                            Text("View Insights")
+                                .font(.system(size: 15, weight: .medium))
+                        }
+                        .foregroundColor(.secondary)
                     }
                 }
             }
         }
+        // ── Unsaved reflection alert ───────────────────────────────────────────
+        .alert(alertTitle, isPresented: $showUnsavedAlert) {
+            Button("Save and Continue") {
+                vm.saveReflection()
+                executePendingAction()
+            }
+            Button("Discard", role: .destructive) {
+                vm.discardReflection()
+                executePendingAction()
+            }
+            Button("Cancel", role: .cancel) {
+                pendingAction = .none
+            }
+        } message: {
+            Text("If you discard, this task will not be added to your history or AI model.")
+        }
     }
+
+    // MARK: - Alert helpers
+
+    private var alertTitle: String {
+        switch pendingAction {
+        case .startNewTask: return "Save your reflection before starting a new task?"
+        case .viewInsights: return "Save your reflection before viewing Insights?"
+        case .none:         return "Save your reflection?"
+        }
+    }
+
+    private func executePendingAction() {
+        let action = pendingAction
+        pendingAction = .none
+        switch action {
+        case .none: break
+        case .startNewTask:
+            // showReflection is already false; wait for dismiss animation then open sheet
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                vm.startNewTask()
+            }
+        case .viewInsights:
+            vm.selectedTab = 2      // switch to Insights tab
+            // showReflection already false; cover will animate out
+        }
+    }
+
+    private func launchNewTask() {
+        vm.showReflection = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            vm.startNewTask()
+        }
+    }
+
+    private func navigateToInsights() {
+        vm.selectedTab = 2
+        vm.showReflection = false
+    }
+
+    // MARK: - Snapshot for display after saving
+    // After saveReflection() clears completedTaskForReflection the view briefly has no task.
+    // We snapshot the task on appear so the UI doesn't flash empty during the dismiss animation.
+    @State private var savedTaskSnapshot: TimeFlowTask? = nil
+
+    // Populated once in onAppear; doesn't react to further changes so the dismiss animation
+    // still has something to render after completedTaskForReflection is cleared.
 
     // MARK: - Helpers
 
