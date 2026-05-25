@@ -5,63 +5,91 @@ struct MainTabView: View {
     @State private var selectedTab: Int = 0
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            NavigationStack {
-                TodayView()
-            }
-            .tabItem {
-                Label("Today", systemImage: "sun.max.fill")
-            }
-            .tag(0)
+        ZStack(alignment: .top) {
 
-            NavigationStack {
-                HistoryView()
-            }
-            .tabItem {
-                Label("History", systemImage: "list.bullet.rectangle")
-            }
-            .tag(1)
+            // ── Main tab content ───────────────────────────────────────────────
+            TabView(selection: $selectedTab) {
+                NavigationStack {
+                    TodayView()
+                }
+                .tabItem { Label("Today", systemImage: "sun.max.fill") }
+                .tag(0)
 
-            NavigationStack {
-                InsightsView()
-            }
-            .tabItem {
-                Label("Insights", systemImage: "chart.line.uptrend.xyaxis")
-            }
-            .tag(2)
+                NavigationStack {
+                    HistoryView()
+                }
+                .tabItem { Label("History", systemImage: "list.bullet.rectangle") }
+                .tag(1)
 
-            NavigationStack {
-                SettingsView()
+                NavigationStack {
+                    InsightsView()
+                }
+                .tabItem { Label("Insights", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(2)
+
+                NavigationStack {
+                    SettingsView()
+                }
+                .tabItem { Label("Settings", systemImage: "gear") }
+                .tag(3)
             }
-            .tabItem {
-                Label("Settings", systemImage: "gear")
+            .accentColor(.tfBlue)
+            // New task sheet at root level so it covers everything
+            .sheet(isPresented: $vm.showNewTaskSheet) {
+                NavigationStack {
+                    NewTaskView()
+                        .navigationDestination(isPresented: $vm.showEstimateReview) {
+                            EstimateReviewView()
+                        }
+                }
+                .environmentObject(vm)
             }
-            .tag(3)
-        }
-        .accentColor(.tfBlue)
-        // Present new task sheet at root level so it covers everything
-        .sheet(isPresented: $vm.showNewTaskSheet) {
-            NavigationStack {
-                NewTaskView()
-                    .navigationDestination(isPresented: $vm.showEstimateReview) {
-                        EstimateReviewView()
+            // Full-screen cover for active timer — includes its own banner overlay
+            .fullScreenCover(isPresented: $vm.showActiveTask) {
+                ZStack(alignment: .top) {
+                    NavigationStack {
+                        ActiveTaskView()
                     }
+                    .environmentObject(vm)
+
+                    // Banner inside the Active Task cover so it's visible here too
+                    if vm.warningState != .none, let task = vm.activeTask {
+                        WarningBanner(
+                            state: vm.warningState,
+                            taskName: task.title,
+                            estimateMinutes: task.finalEstimateMinutes,
+                            elapsedMinutes: vm.elapsedMinutes,
+                            onFinish: { vm.finishTask() },
+                            onContinue: { vm.continueTask() }
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: vm.warningState)
+                        .zIndex(200)
+                    }
+                }
             }
-            .environmentObject(vm)
-        }
-        // Full-screen cover for active timer
-        .fullScreenCover(isPresented: $vm.showActiveTask) {
-            NavigationStack {
-                ActiveTaskView()
+            // Full-screen cover for reflection
+            .fullScreenCover(isPresented: $vm.showReflection) {
+                NavigationStack {
+                    ReflectionView()
+                }
+                .environmentObject(vm)
             }
-            .environmentObject(vm)
-        }
-        // Full-screen cover for reflection
-        .fullScreenCover(isPresented: $vm.showReflection) {
-            NavigationStack {
-                ReflectionView()
+
+            // ── Global warning banner — visible on any tab even if ActiveTask is not open ──
+            if vm.warningState != .none, let task = vm.activeTask, !vm.showActiveTask {
+                WarningBanner(
+                    state: vm.warningState,
+                    taskName: task.title,
+                    estimateMinutes: task.finalEstimateMinutes,
+                    elapsedMinutes: vm.elapsedMinutes,
+                    onFinish: { vm.finishTask() },
+                    onContinue: { vm.continueTask() }
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: vm.warningState)
+                .zIndex(100)
             }
-            .environmentObject(vm)
         }
     }
 }

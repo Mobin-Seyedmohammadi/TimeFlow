@@ -11,110 +11,116 @@ struct ActiveTaskView: View {
             Color.tfBackground.ignoresSafeArea()
 
             if let task = task {
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Task header
-                        VStack(spacing: 10) {
-                            HStack {
-                                StatusChip(category: task.category)
-                                Spacer()
-                                statusChip
-                            }
+                VStack(spacing: 0) {
 
-                            Text(task.title)
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.tfDark)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-
-                        // Progress ring
-                        ProgressTimerView(
+                    // ── Pinned warning card — always visible, no scrolling needed ──────
+                    if vm.warningState != .none {
+                        WarningCard(
+                            state: vm.warningState,
                             elapsedMinutes: vm.elapsedMinutes,
                             estimateMinutes: task.finalEstimateMinutes,
-                            isRunning: vm.isTimerRunning,
-                            warningState: vm.warningState
+                            overtimeMinutes: vm.overtimeMinutes,
+                            onFinish: { vm.finishTask() },
+                            onContinue: { vm.continueTask() }
                         )
-                        .padding(.vertical, 8)
-
-                        // Time stats
-                        TimeFlowCard {
-                            HStack(spacing: 0) {
-                                timeStatColumn(
-                                    label: "Elapsed",
-                                    value: vm.formattedElapsed(),
-                                    color: ringColor
-                                )
-                                Divider().frame(height: 44)
-                                timeStatColumn(
-                                    label: "Estimated",
-                                    value: "\(task.finalEstimateMinutes):00",
-                                    color: .secondary
-                                )
-                                Divider().frame(height: 44)
-                                if vm.warningState == .overtime {
-                                    timeStatColumn(
-                                        label: "Extra",
-                                        value: "+\(Int(vm.overtimeMinutes)) min",
-                                        color: .tfOrange
-                                    )
-                                } else {
-                                    timeStatColumn(
-                                        label: "Remaining",
-                                        value: vm.formattedRemaining(),
-                                        color: vm.warningState == .nearLimit ? .tfOrange : .tfBlue
-                                    )
-                                }
-                            }
-                        }
                         .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: vm.warningState)
+                    }
 
-                        // Estimates reference card (Recognition over Recall)
-                        TimeFlowCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Your Estimates")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(.secondary)
-                                HStack(spacing: 20) {
-                                    estimateLabel("Your original", value: "\(task.userEstimateMinutes) min")
-                                    estimateLabel("AI suggested", value: "\(task.aiSuggestedMinutes) min", color: .tfBlue)
-                                    estimateLabel("Final selected", value: "\(task.finalEstimateMinutes) min", color: Color(hex: "059669"))
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            // Task header
+                            VStack(spacing: 10) {
+                                HStack {
+                                    StatusChip(category: task.category)
+                                    Spacer()
+                                    statusChip
                                 }
-                            }
-                        }
-                        .padding(.horizontal, 16)
 
-                        // Warning / state card
-                        if vm.warningState != .none {
-                            WarningCard(
-                                state: vm.warningState,
+                                Text(task.title)
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(.tfDark)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+
+                            // Progress ring
+                            ProgressTimerView(
                                 elapsedMinutes: vm.elapsedMinutes,
                                 estimateMinutes: task.finalEstimateMinutes,
-                                overtimeMinutes: vm.overtimeMinutes,
-                                onFinish: { vm.finishTask() },
-                                onContinue: { vm.continueTask() }
+                                isRunning: vm.isTimerRunning,
+                                warningState: vm.warningState
                             )
-                            .padding(.horizontal, 16)
-                        }
+                            .padding(.vertical, 8)
 
-                        // Continued message
-                        if vm.continuedAfterWarning && vm.warningState == .overtime {
-                            HStack(spacing: 8) {
-                                Image(systemName: "info.circle.fill")
-                                    .foregroundColor(.tfBlue)
-                                    .font(.system(size: 14))
-                                Text("Task continued. TimeFlow will include this extra time in your future insights.")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.secondary)
+                            // Time stats
+                            TimeFlowCard {
+                                HStack(spacing: 0) {
+                                    timeStatColumn(
+                                        label: "Elapsed",
+                                        value: vm.formattedElapsed(),
+                                        color: ringColor
+                                    )
+                                    Divider().frame(height: 44)
+                                    timeStatColumn(
+                                        label: "Estimated",
+                                        value: "\(task.finalEstimateMinutes):00",
+                                        color: .secondary
+                                    )
+                                    Divider().frame(height: 44)
+                                    if vm.warningState == .overtime {
+                                        timeStatColumn(
+                                            label: "Extra",
+                                            value: "+\(Int(vm.overtimeMinutes)) min",
+                                            color: .tfOrange
+                                        )
+                                    } else {
+                                        timeStatColumn(
+                                            label: "Remaining",
+                                            value: vm.formattedRemaining(),
+                                            color: vm.warningState == .nearLimit ? .tfOrange : .tfBlue
+                                        )
+                                    }
+                                }
                             }
-                            .padding(12)
-                            .background(Color.tfBlue.opacity(0.06))
-                            .cornerRadius(10)
                             .padding(.horizontal, 16)
-                        }
 
-                        Spacer(minLength: 120)
+                            // Estimates reference card (Recognition over Recall)
+                            TimeFlowCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Your Estimates")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(.secondary)
+                                    HStack(spacing: 20) {
+                                        estimateLabel("Your original", value: "\(task.userEstimateMinutes) min")
+                                        estimateLabel("AI suggested", value: "\(task.aiSuggestedMinutes) min", color: .tfBlue)
+                                        estimateLabel("Final selected", value: "\(task.finalEstimateMinutes) min", color: Color(hex: "059669"))
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+
+                            // Continued message
+                            if vm.continuedAfterWarning && vm.warningState == .overtime {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "info.circle.fill")
+                                        .foregroundColor(.tfBlue)
+                                        .font(.system(size: 14))
+                                    Text("Task continued. TimeFlow will include this extra time in your future insights.")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(12)
+                                .background(Color.tfBlue.opacity(0.06))
+                                .cornerRadius(10)
+                                .padding(.horizontal, 16)
+                            }
+
+                            Spacer(minLength: 120)
+                        }
                     }
                 }
 

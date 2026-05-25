@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UserNotifications
 
 class TimeFlowViewModel: ObservableObject {
 
@@ -309,6 +310,7 @@ class TimeFlowViewModel: ObservableObject {
         showEstimateReview = false
         resetTimerState()
         startTimer()
+        scheduleWarningNotifications(for: task)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.showActiveTask = true
         }
@@ -329,13 +331,14 @@ class TimeFlowViewModel: ObservableObject {
     }
 
     func pauseTimer() {
+        if let task = activeTask { cancelWarningNotifications(taskID: task.id) }
         isTimerRunning = false
         timerCancellable?.cancel()
         activeTask?.status = .paused
     }
 
     func resumeTimer() {
-        guard activeTask != nil else { return }
+        guard let task = activeTask else { return }
         activeTask?.status = continuedAfterWarning ? .overtime : .active
         isTimerRunning = true
         timerCancellable = Timer.publish(
@@ -345,6 +348,7 @@ class TimeFlowViewModel: ObservableObject {
         )
         .autoconnect()
         .sink { [weak self] _ in self?.tick() }
+        scheduleWarningNotifications(for: task)
     }
 
     private func tick() {
@@ -381,6 +385,7 @@ class TimeFlowViewModel: ObservableObject {
         timerCancellable?.cancel()
         isTimerRunning = false
         guard var task = activeTask else { return }
+        cancelWarningNotifications(taskID: task.id)
         task.actualDurationMinutes = max(1, Int(elapsedMinutes.rounded()))
         task.status = .completed
         task.completedAt = Date()
@@ -395,6 +400,7 @@ class TimeFlowViewModel: ObservableObject {
     }
 
     func discardActiveTask() {
+        if let task = activeTask { cancelWarningNotifications(taskID: task.id) }
         timerCancellable?.cancel()
         isTimerRunning = false
         activeTask = nil
@@ -422,14 +428,28 @@ class TimeFlowViewModel: ObservableObject {
     }
 
     func resetPrototypeData() {
+        // Cancel any running notifications before clearing state
+        if let task = activeTask { cancelWarningNotifications(taskID: task.id) }
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+
         timerCancellable?.cancel()
         isTimerRunning = false
         activeTask = nil
         resetTimerState()
+
         completedTasks = []
         categoryStats = [:]
-        saveHistory()
+        predictionConfidence = 80   // didSet saves it immediately
+
+        // Explicitly remove all UserDefaults keys so app restores to first-launch state
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: historyKey)
+        defaults.removeObject(forKey: legacyHistoryKey)
+        defaults.removeObject(forKey: categoryStatsKey)
+        defaults.removeObject(forKey: predictionConfKey)
+
         completedTaskForReflection = nil
+        draftAISuggestion = nil
         showActiveTask = false
         showReflection = false
         showNewTaskSheet = false
@@ -479,6 +499,60 @@ class TimeFlowViewModel: ObservableObject {
         let h = minutes / 60
         let m = minutes % 60
         return m == 0 ? "\(h)h" : "\(h)h \(m)m"
+    }
+
+    // MARK: - Notification Scheduling
+
+    /// Schedule two local push notifications for the active task.
+    /// Respects the `simulatedNotifications` toggle — if off, only in-app cards appear.
+    func scheduleWarningNotifications(for task: TimeFlowTask) {
+        guard simulatedNotifications else { return }
+
+        let center = UNUserNotificationCenter.current()
+        let nearID  = "timeflow-near-\(task.id.uuidString)"
+        let limitID = "timeflow-limit-\(task.id.uuidString)"
+
+        // Always cancel previous versions before rescheduling (handles resume after pause)
+        center.removePendingNotificationRequests(withIdentifiers: [nearID, limitID])
+
+        let secPerMin   = prototypeSecondsPerSimulatedMinute
+        let estimateMin = Double(task.finalEstimateMinutes)
+
+        // Seconds remaining until each threshold from NOW (based on elapsed so far)
+        let toNear  = (estimateMin * warningThreshold - elapsedMinutes) * secPerMin
+        let toLimit = (estimateMin - elapsedMinutes) * secPerMin
+
+        func schedule(id: String, title: String, body: String, delay: Double) {
+            guard delay > 0.5 else { return }   // skip if threshold already passed
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body  = body
+            content.sound = .default
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+            center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+        }
+
+        schedule(
+            id:    nearID,
+            title: "Almost at your estimate!",
+            body:  "You planned \(task.finalEstimateMinutes) min for \"\(task.title)\". Are you done or still going?",
+            delay: toNear
+        )
+        schedule(
+            id:    limitID,
+            title: "Time is up for \"\(task.title)\"",
+            body:  "Are you finished or still working?",
+            delay: toLimit
+        )
+    }
+
+    /// Cancel pending notifications for a specific task.
+    func cancelWarningNotifications(taskID: UUID) {
+        let ids = [
+            "timeflow-near-\(taskID.uuidString)",
+            "timeflow-limit-\(taskID.uuidString)"
+        ]
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
     }
 
     // MARK: - Private
