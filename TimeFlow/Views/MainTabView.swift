@@ -3,6 +3,11 @@ import SwiftUI
 struct MainTabView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
 
+    /// First session that needs a warning banner (highest priority).
+    private var alertingSession: ActiveTaskSession? {
+        vm.activeSessions.first(where: { $0.warningState != .none })
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
 
@@ -33,7 +38,8 @@ struct MainTabView: View {
                 .tag(3)
             }
             .accentColor(.tfBlue)
-            // New task sheet at root level so it covers everything
+
+            // New task sheet at root level
             .sheet(isPresented: $vm.showNewTaskSheet) {
                 NavigationStack {
                     NewTaskView()
@@ -43,7 +49,8 @@ struct MainTabView: View {
                 }
                 .environmentObject(vm)
             }
-            // Full-screen cover for active timer — includes its own banner overlay
+
+            // Full-screen cover for the focused active task timer
             .fullScreenCover(isPresented: $vm.showActiveTask) {
                 ZStack(alignment: .top) {
                     NavigationStack {
@@ -51,24 +58,24 @@ struct MainTabView: View {
                     }
                     .environmentObject(vm)
 
-                    // Banner inside the Active Task cover so it's visible here too
-                    if vm.warningState != .none, let task = vm.activeTask {
+                    // Banner inside the cover — warns about the FOCUSED session
+                    if let session = vm.focusedSession, session.warningState != .none {
                         WarningBanner(
-                            state: vm.warningState,
-                            taskName: task.title,
-                            estimateMinutes: task.finalEstimateMinutes,
-                            elapsedMinutes: vm.elapsedMinutes,
-                            onFinish: { vm.finishTask() },
-                            onContinue: { vm.continueTask() }
+                            state: session.warningState,
+                            taskName: session.task.title,
+                            estimateMinutes: session.task.finalEstimateMinutes,
+                            elapsedMinutes: session.elapsedMinutes,
+                            onFinish: { vm.finishTask(sessionID: session.id) },
+                            onContinue: { vm.continueTask(sessionID: session.id) }
                         )
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: vm.warningState)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: session.warningState)
                         .zIndex(200)
                     }
                 }
             }
+
             // Full-screen cover for reflection
-            // onDismiss handles swipe-down: discards if not yet saved (nil-guarded, no-op after save)
             .fullScreenCover(isPresented: $vm.showReflection, onDismiss: {
                 vm.discardReflection()
             }) {
@@ -78,18 +85,19 @@ struct MainTabView: View {
                 .environmentObject(vm)
             }
 
-            // ── Global warning banner — visible on any tab even if ActiveTask is not open ──
-            if vm.warningState != .none, let task = vm.activeTask, !vm.showActiveTask {
+            // ── Global warning banner — visible on any tab when timer is not open ──
+            // Shows for whichever session currently has a warning state.
+            if let session = alertingSession, !vm.showActiveTask {
                 WarningBanner(
-                    state: vm.warningState,
-                    taskName: task.title,
-                    estimateMinutes: task.finalEstimateMinutes,
-                    elapsedMinutes: vm.elapsedMinutes,
-                    onFinish: { vm.finishTask() },
-                    onContinue: { vm.continueTask() }
+                    state: session.warningState,
+                    taskName: session.task.title,
+                    estimateMinutes: session.task.finalEstimateMinutes,
+                    elapsedMinutes: session.elapsedMinutes,
+                    onFinish: { vm.finishTask(sessionID: session.id) },
+                    onContinue: { vm.continueTask(sessionID: session.id) }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: vm.warningState)
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: session.warningState)
                 .zIndex(100)
             }
         }

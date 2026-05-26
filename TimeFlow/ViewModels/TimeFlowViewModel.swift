@@ -7,7 +7,9 @@ class TimeFlowViewModel: ObservableObject {
 
     // MARK: - Settings
     @Published var warningThreshold: Double = 0.85
-    @Published var showAIExplanation: Bool = true
+    @Published var showAIExplanation: Bool = true {
+        didSet { UserDefaults.standard.set(showAIExplanation, forKey: showAIExplanationKey) }
+    }
     @Published var simulatedNotifications: Bool = true
     @Published var defaultCategory: TaskCategory = .study
     @Published var prototypeMode: Bool = true
@@ -15,32 +17,68 @@ class TimeFlowViewModel: ObservableObject {
     var prototypeSecondsPerSimulatedMinute: Double = 1.0
 
     // MARK: - Persistence Keys
-    private let historyKey            = "timeflow_tasks"
-    private let legacyHistoryKey      = "timeflow_completed_tasks"
-    private let categoryStatsKey      = "timeflow_category_stats"
-    private let predictionConfKey     = "timeflow_prediction_confidence"
-    private let activeTaskKey         = "timeflow_active_task"
-    private let taskStartDateKey      = "timeflow_task_start_date"
-    private let elapsedMinutesKey     = "timeflow_elapsed_minutes"
+    private let historyKey              = "timeflow_tasks"
+    private let legacyHistoryKey        = "timeflow_completed_tasks"
+    private let categoryStatsKey        = "timeflow_category_stats"
+    private let predictionConfKey       = "timeflow_prediction_confidence"
+    private let showAIExplanationKey    = "timeflow_show_ai_explanation"
+    private let activeSessionsKey       = "timeflow_active_sessions"
+    // Legacy single-task keys (used for migration only)
+    private let activeTaskKey           = "timeflow_active_task"
+    private let taskStartDateKey        = "timeflow_task_start_date"
+    private let elapsedMinutesKey       = "timeflow_elapsed_minutes"
 
     // MARK: - Data
     @Published var completedTasks: [TimeFlowTask] = []
-
-    /// Per-category regression stats: [category.rawValue: RegressionStats]
     @Published var categoryStats: [String: RegressionStats] = [:]
-
-    /// Preferred prediction confidence level (80, 85, 90, or 95).
-    /// Saved immediately to UserDefaults via didSet.
     @Published var predictionConfidence: Int = 80 {
-        didSet {
-            UserDefaults.standard.set(predictionConfidence, forKey: predictionConfKey)
-        }
+        didSet { UserDefaults.standard.set(predictionConfidence, forKey: predictionConfKey) }
     }
+
+    // MARK: - Active Sessions (multi-task)
+    @Published var activeSessions: [ActiveTaskSession] = []
+    /// Which session is shown in ActiveTaskView / used by compatibility shims.
+    @Published var focusedSessionID: UUID? = nil
+
+    // MARK: - Compatibility shims (existing views unchanged)
+    var focusedSession: ActiveTaskSession? {
+        guard let id = focusedSessionID else { return nil }
+        return activeSessions.first { $0.id == id }
+    }
+    var activeTask: TimeFlowTask?          { focusedSession?.task }
+    var elapsedMinutes: Double             { focusedSession?.elapsedMinutes ?? 0 }
+    var isTimerRunning: Bool               { focusedSession?.isRunning ?? false }
+    var warningState: WarningState         { focusedSession?.warningState ?? .none }
+    var continuedAfterWarning: Bool        { focusedSession?.continuedAfterWarning ?? false }
+    var overtimeMinutes: Double            { focusedSession?.overtimeMinutes ?? 0 }
+    var remainingMinutes: Double           { focusedSession?.remainingMinutes ?? 0 }
+    var progressPercentage: Double         { focusedSession?.progressFraction ?? 0 }
+
+    // MARK: - Draft (new task creation)
+    @Published var draftTitle: String = ""
+    @Published var draftCategory: TaskCategory = .study
+    @Published var draftUserEstimate: Int = 30
+    @Published var draftNotes: String = ""
+    @Published var draftAISuggestion: AISuggestion? = nil
+    @Published var draftFinalEstimate: Int = 30
+    @Published var draftFinalEstimateSource: EstimateSource = .user
+
+    // MARK: - Navigation
+    @Published var showNewTaskSheet: Bool = false
+    @Published var showEstimateReview: Bool = false
+    @Published var showActiveTask: Bool = false
+    @Published var showReflection: Bool = false
+    @Published var completedTaskForReflection: TimeFlowTask? = nil
+    @Published var selectedTab: Int = 0
+
+    // MARK: - Timer
+    private var timerCancellable: AnyCancellable?
+    private var foregroundObserver: AnyCancellable?
+    private var backgroundObserver: AnyCancellable?
 
     // MARK: - Init
     init() {
-        // ── Persistent data ────────────────────────────────────────────────────
-        // Load completedTasks — try new key first, then legacy key
+        // ── Completed tasks ────────────────────────────────────────────────────
         let tasksData = UserDefaults.standard.data(forKey: historyKey)
             ?? UserDefaults.standard.data(forKey: legacyHistoryKey)
         if let data = tasksData,
@@ -48,47 +86,83 @@ class TimeFlowViewModel: ObservableObject {
             completedTasks = saved
         }
 
-        // Load categoryStats
+        // ── Category stats ─────────────────────────────────────────────────────
         if let data = UserDefaults.standard.data(forKey: categoryStatsKey),
            let saved = try? JSONDecoder().decode([String: RegressionStats].self, from: data) {
             categoryStats = saved
         }
 
-        // Load predictionConfidence (0 means key not set → default 80)
+        // ── Prediction confidence ──────────────────────────────────────────────
         let savedConf = UserDefaults.standard.integer(forKey: predictionConfKey)
         predictionConfidence = savedConf > 0 ? savedConf : 80
 
-        // ── Active task recovery (survives app kills) ──────────────────────────
-        if let data = UserDefaults.standard.data(forKey: activeTaskKey),
-           let savedTask = try? JSONDecoder().decode(TimeFlowTask.self, from: data) {
+        // ── AI explanation toggle ──────────────────────────────────────────────
+        if UserDefaults.standard.object(forKey: showAIExplanationKey) != nil {
+            showAIExplanation = UserDefaults.standard.bool(forKey: showAIExplanationKey)
+        }
 
-            activeTask = savedTask
-            showActiveTask = true
+        // ── Active sessions recovery ───────────────────────────────────────────
+        if let data = UserDefaults.standard.data(forKey: activeSessionsKey),
+           let saved = try? JSONDecoder().decode([ActiveTaskSession].self, from: data) {
 
-            let savedStartInterval = UserDefaults.standard.double(forKey: taskStartDateKey)
+            var restoredSessions = saved
+            let now = Date()
+            for i in restoredSessions.indices {
+                if restoredSessions[i].isRunning, let epochSec = restoredSessions[i].taskStartEpoch {
+                    let anchor = Date(timeIntervalSince1970: epochSec)
+                    restoredSessions[i].elapsedMinutes = max(0,
+                        now.timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute)
+                    restoreWarningStateInPlace(session: &restoredSessions[i])
+                }
+            }
+            activeSessions = restoredSessions
+            focusedSessionID = restoredSessions.first?.id
 
-            if savedStartInterval > 0 {
-                // Task was running when app was killed / went to background
-                let anchor = Date(timeIntervalSince1970: savedStartInterval)
-                taskStartDate = anchor
-                let computed = Date().timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute
-                elapsedMinutes = max(0, computed)
-                isTimerRunning = true
-
-                // Restore warning flags based on how much time has passed
-                restoreWarningState()
-
-                // Kick off the tick loop after the run loop is ready
+            if activeSessions.contains(where: { $0.isRunning }) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                     self?.startTimerTick()
                 }
-            } else {
-                // Task was paused when app was killed
-                let savedElapsed = UserDefaults.standard.double(forKey: elapsedMinutesKey)
-                elapsedMinutes = max(0, savedElapsed)
-                isTimerRunning = false
-                restoreWarningState()
             }
+
+        } else if let data = UserDefaults.standard.data(forKey: activeTaskKey),
+                  let savedTask = try? JSONDecoder().decode(TimeFlowTask.self, from: data) {
+            // ── Migrate old single-task format ─────────────────────────────────
+            let savedStartInterval = UserDefaults.standard.double(forKey: taskStartDateKey)
+            let savedElapsed = UserDefaults.standard.double(forKey: elapsedMinutesKey)
+            let isRunning = savedStartInterval > 0
+
+            var session = ActiveTaskSession(
+                task: savedTask,
+                taskStartEpoch: isRunning ? savedStartInterval : nil,
+                elapsedMinutes: 0,
+                isRunning: isRunning,
+                warningState: .none,
+                continuedAfterWarning: false,
+                hasShownNearLimit: false,
+                hasShownReachedLimit: false,
+                warningBannerDismissed: false
+            )
+            if isRunning, savedStartInterval > 0 {
+                let anchor = Date(timeIntervalSince1970: savedStartInterval)
+                session.elapsedMinutes = max(0,
+                    Date().timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute)
+            } else {
+                session.elapsedMinutes = max(0, savedElapsed)
+            }
+            restoreWarningStateInPlace(session: &session)
+            activeSessions = [session]
+            focusedSessionID = savedTask.id
+
+            if isRunning {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    self?.startTimerTick()
+                }
+            }
+            // Clean up old keys
+            let defaults = UserDefaults.standard
+            defaults.removeObject(forKey: activeTaskKey)
+            defaults.removeObject(forKey: taskStartDateKey)
+            defaults.removeObject(forKey: elapsedMinutesKey)
         }
 
         // ── App lifecycle observers ────────────────────────────────────────────
@@ -103,6 +177,26 @@ class TimeFlowViewModel: ObservableObject {
             .sink { [weak self] _ in self?.handleBackground() }
     }
 
+    // MARK: - Session Helpers
+
+    private func sessionIndex(for id: UUID? = nil) -> Int? {
+        let resolvedID = id ?? focusedSessionID
+        guard let resolvedID else { return nil }
+        return activeSessions.firstIndex { $0.id == resolvedID }
+    }
+
+    private func refreshTimerState() {
+        let anyRunning = activeSessions.contains(where: { $0.isRunning })
+        if anyRunning {
+            if timerCancellable == nil { startTimerTick() }
+        } else {
+            timerCancellable?.cancel()
+            timerCancellable = nil
+        }
+    }
+
+    // MARK: - Persistence
+
     private func saveHistory() {
         if let data = try? JSONEncoder().encode(completedTasks) {
             UserDefaults.standard.set(data, forKey: historyKey)
@@ -110,8 +204,15 @@ class TimeFlowViewModel: ObservableObject {
         if let data = try? JSONEncoder().encode(categoryStats) {
             UserDefaults.standard.set(data, forKey: categoryStatsKey)
         }
-        // predictionConfidence is saved via didSet, but belt-and-suspenders here too
         UserDefaults.standard.set(predictionConfidence, forKey: predictionConfKey)
+    }
+
+    private func saveActiveSessionsState() {
+        if activeSessions.isEmpty {
+            UserDefaults.standard.removeObject(forKey: activeSessionsKey)
+        } else if let data = try? JSONEncoder().encode(activeSessions) {
+            UserDefaults.standard.set(data, forKey: activeSessionsKey)
+        }
     }
 
     // MARK: - Computed Insights
@@ -122,7 +223,6 @@ class TimeFlowViewModel: ObservableObject {
 
         var result: [Insight] = []
 
-        // Overall pattern if 3+ tasks: avg((actual - estimate) / estimate * 100)
         if doneTasks.count >= 3 {
             let pcts = doneTasks.compactMap { t -> Double? in
                 guard let a = t.actualDurationMinutes, t.finalEstimateMinutes > 0 else { return nil }
@@ -141,7 +241,6 @@ class TimeFlowViewModel: ObservableObject {
             }
         }
 
-        // Per-category insights
         var categoryGroups: [TaskCategory: [TimeFlowTask]] = [:]
         for task in doneTasks { categoryGroups[task.category, default: []].append(task) }
 
@@ -180,7 +279,6 @@ class TimeFlowViewModel: ObservableObject {
             }
         }
 
-        // Best category
         let multiTaskCategories = categoryGroups.filter { $0.value.count >= 2 }
         if multiTaskCategories.count >= 2 {
             let categoryAccuracy: [(TaskCategory, Double)] = multiTaskCategories.compactMap { cat, tasks in
@@ -201,61 +299,7 @@ class TimeFlowViewModel: ObservableObject {
         return result
     }
 
-    // MARK: - Active Task
-    @Published var activeTask: TimeFlowTask? = nil
-    @Published var elapsedMinutes: Double = 0
-    @Published var isTimerRunning: Bool = false
-    @Published var warningState: WarningState = .none
-    @Published var continuedAfterWarning: Bool = false
-    private var hasShownNearLimit = false
-    private var hasShownReachedLimit = false
-
-    /// Wall-clock anchor for elapsed time.
-    /// elapsedMinutes = (Date() − taskStartDate) / prototypeSecondsPerSimulatedMinute
-    /// nil when the timer is paused or stopped.
-    private var taskStartDate: Date? = nil
-
-    /// Combine subscriptions for app lifecycle notifications.
-    private var foregroundObserver: AnyCancellable?
-    private var backgroundObserver: AnyCancellable?
-
-    // MARK: - Draft (new task creation)
-    @Published var draftTitle: String = ""
-    @Published var draftCategory: TaskCategory = .study
-    @Published var draftUserEstimate: Int = 30
-    @Published var draftNotes: String = ""
-    @Published var draftAISuggestion: AISuggestion? = nil
-    @Published var draftFinalEstimate: Int = 30
-    @Published var draftFinalEstimateSource: EstimateSource = .user
-
-    // MARK: - Navigation
-    @Published var showNewTaskSheet: Bool = false
-    @Published var showEstimateReview: Bool = false
-    @Published var showActiveTask: Bool = false
-    @Published var showReflection: Bool = false
-    @Published var completedTaskForReflection: TimeFlowTask? = nil
-    /// Controls which tab is selected in MainTabView (0=Today, 1=History, 2=Insights, 3=Settings)
-    @Published var selectedTab: Int = 0
-
-    // MARK: - Timer
-    private var timerCancellable: AnyCancellable?
-
     // MARK: - Computed
-
-    var progressPercentage: Double {
-        guard let task = activeTask, task.finalEstimateMinutes > 0 else { return 0 }
-        return elapsedMinutes / Double(task.finalEstimateMinutes)
-    }
-
-    var remainingMinutes: Double {
-        guard let task = activeTask else { return 0 }
-        return max(Double(task.finalEstimateMinutes) - elapsedMinutes, 0)
-    }
-
-    var overtimeMinutes: Double {
-        guard let task = activeTask else { return 0 }
-        return max(elapsedMinutes - Double(task.finalEstimateMinutes), 0)
-    }
 
     var todayCompletedCount: Int {
         completedTasks.filter { task in
@@ -279,9 +323,8 @@ class TimeFlowViewModel: ObservableObject {
 
     var recentInsight: Insight? { insights.first(where: { $0.type != .aiNote }) ?? insights.first }
 
-    // MARK: - AI Prediction (computed)
+    // MARK: - AI Prediction
 
-    /// Computes a real-time prediction using current draft values and regression stats.
     var currentPrediction: PredictionResult? {
         guard draftUserEstimate > 0 else { return nil }
         let stats = categoryStats[draftCategory.rawValue]
@@ -365,12 +408,28 @@ class TimeFlowViewModel: ObservableObject {
             completedAt: nil,
             notes: draftNotes
         )
-        activeTask = task
+
+        let session = ActiveTaskSession(
+            task: task,
+            taskStartEpoch: Date().timeIntervalSince1970,
+            elapsedMinutes: 0,
+            isRunning: true,
+            warningState: .none,
+            continuedAfterWarning: false,
+            hasShownNearLimit: false,
+            hasShownReachedLimit: false,
+            warningBannerDismissed: false
+        )
+
+        activeSessions.append(session)
+        focusedSessionID = task.id
         showNewTaskSheet = false
         showEstimateReview = false
-        resetTimerState()
-        startTimer()
-        scheduleWarningNotifications(for: task)
+
+        scheduleWarningNotifications(for: task, elapsedMinutes: 0)
+        refreshTimerState()
+        saveActiveSessionsState()
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.showActiveTask = true
         }
@@ -378,22 +437,8 @@ class TimeFlowViewModel: ObservableObject {
 
     // MARK: - Timer
 
-    func startTimer() {
-        guard activeTask != nil else { return }
-        // Anchor: now minus already-elapsed real seconds (so elapsed restarts from 0)
-        taskStartDate = Date().addingTimeInterval(
-            -(elapsedMinutes * prototypeSecondsPerSimulatedMinute)
-        )
-        isTimerRunning = true
-        startTimerTick()
-        saveActiveTaskState()
-    }
-
-    /// Starts (or restarts) the Combine ticker that drives UI updates.
     private func startTimerTick() {
         timerCancellable?.cancel()
-        // Tick at the prototype rate (1 s/simulated-min). Wall-clock anchoring means
-        // skipped ticks (background) never cause elapsed drift.
         timerCancellable = Timer.publish(
             every: prototypeSecondsPerSimulatedMinute,
             on: .main,
@@ -403,130 +448,145 @@ class TimeFlowViewModel: ObservableObject {
         .sink { [weak self] _ in self?.tick() }
     }
 
-    func pauseTimer() {
-        if let task = activeTask { cancelWarningNotifications(taskID: task.id) }
-        // Freeze elapsed at the current wall-clock value before clearing the anchor
-        if let anchor = taskStartDate {
-            elapsedMinutes = max(0,
+    func pauseTimer(sessionID: UUID? = nil) {
+        guard let idx = sessionIndex(for: sessionID) else { return }
+        cancelWarningNotifications(taskID: activeSessions[idx].task.id)
+        if let epochSec = activeSessions[idx].taskStartEpoch {
+            let anchor = Date(timeIntervalSince1970: epochSec)
+            activeSessions[idx].elapsedMinutes = max(0,
                 Date().timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute)
         }
-        taskStartDate = nil
-        isTimerRunning = false
-        timerCancellable?.cancel()
-        activeTask?.status = .paused
-        saveActiveTaskState()
+        activeSessions[idx].taskStartEpoch = nil
+        activeSessions[idx].isRunning = false
+        activeSessions[idx].task.status = .paused
+        refreshTimerState()
+        saveActiveSessionsState()
     }
 
-    func resumeTimer() {
-        guard let task = activeTask else { return }
-        activeTask?.status = continuedAfterWarning ? .overtime : .active
-        // Restore anchor so the clock continues from the current elapsed value
-        taskStartDate = Date().addingTimeInterval(
-            -(elapsedMinutes * prototypeSecondsPerSimulatedMinute)
-        )
-        isTimerRunning = true
-        startTimerTick()
-        scheduleWarningNotifications(for: task)
-        saveActiveTaskState()
+    func resumeTimer(sessionID: UUID? = nil) {
+        guard let idx = sessionIndex(for: sessionID) else { return }
+        let session = activeSessions[idx]
+        activeSessions[idx].task.status = session.continuedAfterWarning ? .overtime : .active
+        activeSessions[idx].taskStartEpoch = Date().addingTimeInterval(
+            -(session.elapsedMinutes * prototypeSecondsPerSimulatedMinute)
+        ).timeIntervalSince1970
+        activeSessions[idx].isRunning = true
+        scheduleWarningNotifications(for: session.task, elapsedMinutes: session.elapsedMinutes)
+        refreshTimerState()
+        saveActiveSessionsState()
     }
 
     private func tick() {
-        guard isTimerRunning, let task = activeTask, let anchor = taskStartDate else { return }
-
-        // Compute elapsed from the real wall clock — background-proof
-        elapsedMinutes = max(0,
-            Date().timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute)
-
-        updateWarningState(for: task)
-    }
-
-    /// Evaluates warning thresholds and updates warningState / task status.
-    private func updateWarningState(for task: TimeFlowTask) {
-        let estimate       = Double(task.finalEstimateMinutes)
-        let nearThreshold  = estimate * warningThreshold
-
-        if elapsedMinutes >= estimate {
-            activeTask?.status = .overtime
-            if !hasShownReachedLimit && !continuedAfterWarning {
-                hasShownReachedLimit = true
-                warningState = .reachedLimit
-            } else if continuedAfterWarning {
-                warningState = .overtime
-            }
-        } else if elapsedMinutes >= nearThreshold {
-            if !hasShownNearLimit {
-                hasShownNearLimit = true
-                warningState = .nearLimit
-            }
+        let now = Date()
+        for i in activeSessions.indices {
+            guard activeSessions[i].isRunning,
+                  let epochSec = activeSessions[i].taskStartEpoch else { continue }
+            let anchor = Date(timeIntervalSince1970: epochSec)
+            activeSessions[i].elapsedMinutes = max(0,
+                now.timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute)
+            updateWarningState(forSessionAt: i)
         }
     }
 
-    /// Restores warning flags when re-entering an in-progress task (after app-kill recovery).
-    private func restoreWarningState() {
-        guard let task = activeTask else { return }
-        let estimate      = Double(task.finalEstimateMinutes)
+    private func updateWarningState(forSessionAt i: Int) {
+        let estimate      = Double(activeSessions[i].task.finalEstimateMinutes)
         let nearThreshold = estimate * warningThreshold
+        let elapsed       = activeSessions[i].elapsedMinutes
 
-        if elapsedMinutes >= estimate {
-            hasShownNearLimit    = true
-            hasShownReachedLimit = true
-            activeTask?.status   = .overtime
-            warningState         = .reachedLimit   // prompt the user to respond
-        } else if elapsedMinutes >= nearThreshold {
-            hasShownNearLimit = true
-            warningState      = .nearLimit
+        if elapsed >= estimate {
+            activeSessions[i].task.status = .overtime
+            if !activeSessions[i].hasShownReachedLimit && !activeSessions[i].continuedAfterWarning {
+                activeSessions[i].hasShownReachedLimit = true
+                activeSessions[i].warningBannerDismissed = false
+                activeSessions[i].warningState = .reachedLimit
+            } else if activeSessions[i].continuedAfterWarning && !activeSessions[i].warningBannerDismissed {
+                activeSessions[i].warningState = .overtime
+            }
+            // If warningBannerDismissed == true, leave warningState as .none
+        } else if elapsed >= nearThreshold {
+            if !activeSessions[i].hasShownNearLimit {
+                activeSessions[i].hasShownNearLimit = true
+                activeSessions[i].warningBannerDismissed = false
+                activeSessions[i].warningState = .nearLimit
+            }
         }
     }
 
-    func continueTask() {
-        continuedAfterWarning = true
-        hasShownNearLimit = true
-        hasShownReachedLimit = true
-        warningState = elapsedMinutes >= Double(activeTask?.finalEstimateMinutes ?? 0) ? .overtime : .none
+    /// Restores warning flags for a session when recovering from persistence.
+    private func restoreWarningStateInPlace(session: inout ActiveTaskSession) {
+        let estimate      = Double(session.task.finalEstimateMinutes)
+        let nearThreshold = estimate * warningThreshold
+        let elapsed       = session.elapsedMinutes
+
+        if elapsed >= estimate {
+            session.hasShownNearLimit    = true
+            session.hasShownReachedLimit = true
+            session.task.status          = .overtime
+            session.warningState         = .reachedLimit
+        } else if elapsed >= nearThreshold {
+            session.hasShownNearLimit = true
+            session.warningState      = .nearLimit
+        }
     }
 
-    func finishTask() {
-        timerCancellable?.cancel()
-        isTimerRunning = false
-        guard var task = activeTask else { return }
-        cancelWarningNotifications(taskID: task.id)
-        // Compute final elapsed from wall clock before clearing anchor
-        if let anchor = taskStartDate {
-            elapsedMinutes = max(0,
+    func continueTask(sessionID: UUID? = nil) {
+        guard let idx = sessionIndex(for: sessionID) else { return }
+        activeSessions[idx].continuedAfterWarning = true
+        activeSessions[idx].hasShownNearLimit = true
+        activeSessions[idx].hasShownReachedLimit = true
+        activeSessions[idx].warningBannerDismissed = true
+        activeSessions[idx].warningState = .none
+    }
+
+    func finishTask(sessionID: UUID? = nil) {
+        guard let idx = sessionIndex(for: sessionID) else { return }
+        var session = activeSessions[idx]
+        cancelWarningNotifications(taskID: session.task.id)
+
+        // Final elapsed from wall clock
+        if let epochSec = session.taskStartEpoch {
+            let anchor = Date(timeIntervalSince1970: epochSec)
+            session.elapsedMinutes = max(0,
                 Date().timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute)
         }
-        taskStartDate = nil
-        task.actualDurationMinutes = max(1, Int(elapsedMinutes.rounded()))
-        task.status = .completed
-        task.completedAt = Date()
-        completedTaskForReflection = task
-        activeTask = nil
-        elapsedMinutes = 0
-        warningState = .none
-        clearActiveTaskState()
+        session.task.actualDurationMinutes = max(1, Int(session.elapsedMinutes.rounded()))
+        session.task.status    = .completed
+        session.task.completedAt = Date()
+        completedTaskForReflection = session.task
+
+        let finishedID = session.id
+        activeSessions.remove(at: idx)
+        if focusedSessionID == finishedID {
+            focusedSessionID = activeSessions.first?.id
+        }
+        refreshTimerState()
+        saveActiveSessionsState()
         showActiveTask = false
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             self.showReflection = true
         }
     }
 
-    func discardActiveTask() {
-        if let task = activeTask { cancelWarningNotifications(taskID: task.id) }
-        timerCancellable?.cancel()
-        isTimerRunning = false
-        taskStartDate = nil
-        activeTask = nil
-        resetTimerState()
-        clearActiveTaskState()
+    func discardActiveTask(sessionID: UUID? = nil) {
+        guard let idx = sessionIndex(for: sessionID) else { return }
+        let session = activeSessions[idx]
+        cancelWarningNotifications(taskID: session.task.id)
+
+        let discardedID = session.id
+        activeSessions.remove(at: idx)
+        if focusedSessionID == discardedID {
+            focusedSessionID = activeSessions.first?.id
+        }
+        refreshTimerState()
+        saveActiveSessionsState()
         showActiveTask = false
     }
 
-    /// Saves the completed task to history and updates regression stats.
-    /// This is the ONLY place where a task is persisted; nothing is saved on finishTask().
+    // MARK: - Reflection
+
     func saveReflection() {
         guard let task = completedTaskForReflection else { return }
-
-        // Update per-category regression stats (x = user estimate, y = actual duration)
         let x = Double(task.userEstimateMinutes)
         if let actualMinutes = task.actualDurationMinutes {
             let y = Double(actualMinutes)
@@ -534,45 +594,46 @@ class TimeFlowViewModel: ObservableObject {
                 categoryStats[task.category.rawValue, default: RegressionStats()].update(x: x, y: y)
             }
         }
-
         completedTasks.insert(task, at: 0)
         saveHistory()
-        // Clear BEFORE setting showReflection = false so onDismiss is a no-op
         completedTaskForReflection = nil
         showReflection = false
     }
 
-    /// Discards the pending reflection without saving anything.
-    /// Safe to call even if the task was already saved (nil-guarded).
     func discardReflection() {
         guard completedTaskForReflection != nil else { return }
         completedTaskForReflection = nil
         showReflection = false
     }
 
+    // MARK: - Reset
+
     func resetPrototypeData() {
-        // Cancel any running notifications before clearing state
-        if let task = activeTask { cancelWarningNotifications(taskID: task.id) }
+        for session in activeSessions {
+            cancelWarningNotifications(taskID: session.task.id)
+        }
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
 
         timerCancellable?.cancel()
-        isTimerRunning = false
-        activeTask = nil
-        resetTimerState()
+        timerCancellable = nil
+        activeSessions = []
+        focusedSessionID = nil
 
         completedTasks = []
         categoryStats = [:]
-        predictionConfidence = 80   // didSet saves it immediately
+        predictionConfidence = 80
 
-        // Explicitly remove all UserDefaults keys so app restores to first-launch state
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: historyKey)
         defaults.removeObject(forKey: legacyHistoryKey)
         defaults.removeObject(forKey: categoryStatsKey)
         defaults.removeObject(forKey: predictionConfKey)
+        defaults.removeObject(forKey: activeSessionsKey)
         defaults.removeObject(forKey: activeTaskKey)
         defaults.removeObject(forKey: taskStartDateKey)
         defaults.removeObject(forKey: elapsedMinutesKey)
+        defaults.removeObject(forKey: showAIExplanationKey)
+        showAIExplanation = true
 
         completedTaskForReflection = nil
         draftAISuggestion = nil
@@ -595,7 +656,7 @@ class TimeFlowViewModel: ObservableObject {
 
     func aiComparison(for task: TimeFlowTask) -> String {
         guard let actual = task.actualDurationMinutes else { return "" }
-        let aiDiff = abs(actual - task.aiSuggestedMinutes)
+        let aiDiff   = abs(actual - task.aiSuggestedMinutes)
         let userDiff = abs(actual - task.userEstimateMinutes)
         if aiDiff < userDiff { return "The AI suggestion was closer by \(userDiff - aiDiff) min." }
         if userDiff < aiDiff { return "Your estimate was closer by \(aiDiff - userDiff) min." }
@@ -628,70 +689,44 @@ class TimeFlowViewModel: ObservableObject {
         return m == 0 ? "\(h)h" : "\(h)h \(m)m"
     }
 
-    // MARK: - Background / Foreground Handling
+    // MARK: - Background / Foreground
 
-    /// Called when the app returns to the foreground.
-    /// Recomputes elapsed from the wall-clock anchor to fix any drift caused by backgrounding.
     private func handleForeground() {
-        guard isTimerRunning, let anchor = taskStartDate, activeTask != nil else { return }
-        elapsedMinutes = max(0,
-            Date().timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute)
-        if let task = activeTask { updateWarningState(for: task) }
+        let now = Date()
+        for i in activeSessions.indices {
+            guard activeSessions[i].isRunning,
+                  let epochSec = activeSessions[i].taskStartEpoch else { continue }
+            let anchor = Date(timeIntervalSince1970: epochSec)
+            activeSessions[i].elapsedMinutes = max(0,
+                now.timeIntervalSince(anchor) / prototypeSecondsPerSimulatedMinute)
+            updateWarningState(forSessionAt: i)
+        }
     }
 
-    /// Called when the app moves to the background.
-    /// Saves the wall-clock anchor so elapsed time survives both backgrounding and app kills.
     private func handleBackground() {
-        guard activeTask != nil else { return }
-        saveActiveTaskState()
-    }
-
-    // MARK: - Active Task Persistence
-
-    /// Persists the active task + timer anchor to UserDefaults so state survives app kills.
-    private func saveActiveTaskState() {
-        guard let task = activeTask else { clearActiveTaskState(); return }
-        if let data = try? JSONEncoder().encode(task) {
-            UserDefaults.standard.set(data, forKey: activeTaskKey)
-        }
-        if let anchor = taskStartDate {
-            UserDefaults.standard.set(anchor.timeIntervalSince1970, forKey: taskStartDateKey)
-        } else {
-            UserDefaults.standard.removeObject(forKey: taskStartDateKey)
-        }
-        UserDefaults.standard.set(elapsedMinutes, forKey: elapsedMinutesKey)
-    }
-
-    /// Removes all active-task state from UserDefaults (task finished, discarded, or reset).
-    private func clearActiveTaskState() {
-        UserDefaults.standard.removeObject(forKey: activeTaskKey)
-        UserDefaults.standard.removeObject(forKey: taskStartDateKey)
-        UserDefaults.standard.removeObject(forKey: elapsedMinutesKey)
+        guard !activeSessions.isEmpty else { return }
+        saveActiveSessionsState()
     }
 
     // MARK: - Notification Scheduling
 
-    /// Schedule two local push notifications for the active task.
-    /// Respects the `simulatedNotifications` toggle — if off, only in-app cards appear.
-    func scheduleWarningNotifications(for task: TimeFlowTask) {
+    func scheduleWarningNotifications(for task: TimeFlowTask, elapsedMinutes: Double = 0) {
         guard simulatedNotifications else { return }
 
-        let center = UNUserNotificationCenter.current()
+        let center  = UNUserNotificationCenter.current()
         let nearID  = "timeflow-near-\(task.id.uuidString)"
         let limitID = "timeflow-limit-\(task.id.uuidString)"
 
-        // Always cancel previous versions before rescheduling (handles resume after pause)
         center.removePendingNotificationRequests(withIdentifiers: [nearID, limitID])
 
         let secPerMin   = prototypeSecondsPerSimulatedMinute
         let estimateMin = Double(task.finalEstimateMinutes)
 
-        // Seconds remaining until each threshold from NOW (based on elapsed so far)
         let toNear  = (estimateMin * warningThreshold - elapsedMinutes) * secPerMin
         let toLimit = (estimateMin - elapsedMinutes) * secPerMin
 
         func schedule(id: String, title: String, body: String, delay: Double) {
-            guard delay > 0.5 else { return }   // skip if threshold already passed
+            guard delay > 0.5 else { return }
             let content = UNMutableNotificationContent()
             content.title = title
             content.body  = body
@@ -714,24 +749,12 @@ class TimeFlowViewModel: ObservableObject {
         )
     }
 
-    /// Cancel pending notifications for a specific task.
     func cancelWarningNotifications(taskID: UUID) {
         let ids = [
             "timeflow-near-\(taskID.uuidString)",
             "timeflow-limit-\(taskID.uuidString)"
         ]
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
-    }
-
-    // MARK: - Private
-
-    private func resetTimerState() {
-        elapsedMinutes = 0
-        warningState = .none
-        continuedAfterWarning = false
-        hasShownNearLimit = false
-        hasShownReachedLimit = false
-        taskStartDate = nil
     }
 }
 
@@ -743,13 +766,6 @@ enum EstimateSource {
 // MARK: - AI Engine
 struct AIEngine {
 
-    /// Predict task duration using online linear regression with sufficient statistics.
-    /// - Parameters:
-    ///   - userEstimate: User's estimate in minutes (must be > 0)
-    ///   - category: Task category
-    ///   - stats: Accumulated regression stats for this category (nil = no history)
-    ///   - confidencePercent: Desired prediction interval confidence (80, 85, 90, or 95)
-    /// - Returns: A PredictionResult with pointEstimate >= 1, lowBound >= 1, highBound > lowBound
     static func predict(
         userEstimate: Double,
         category: TaskCategory,
@@ -759,7 +775,6 @@ struct AIEngine {
 
         let safeEstimate = max(1.0, userEstimate)
 
-        // ── CASE: no data ──────────────────────────────────────────────────────
         guard let stats = stats, stats.n > 0 else {
             let factor = category.defaultAdjustmentFactor
             let point  = max(1.0, safeEstimate * factor)
@@ -776,10 +791,8 @@ struct AIEngine {
             )
         }
 
-        // ── CASE: n == 1 ────────────────────────────────────────────────────────
         if stats.n < 2 {
             guard stats.sumX > 1e-9 else {
-                // Edge: stored estimate was 0 — use default factor
                 let factor = category.defaultAdjustmentFactor
                 let point  = max(1.0, safeEstimate * factor)
                 let low    = max(1.0, point * 0.75)
@@ -810,7 +823,6 @@ struct AIEngine {
             )
         }
 
-        // ── CASE: n >= 2 — full linear regression ─────────────────────────────
         let n    = stats.n
         let sumX = stats.sumX
         let sumY = stats.sumY
@@ -824,9 +836,7 @@ struct AIEngine {
         let Sxy  = sumXY - (sumX * sumY) / n
         let Syy  = sumYY - (sumY * sumY) / n
 
-        // Guard against degenerate case (all x-values identical)
         guard Sxx > 1e-9 else {
-            // Fall back to simple ratio method
             let ratio  = sumX > 1e-9 ? (sumY / sumX) : category.defaultAdjustmentFactor
             let point  = max(1.0, safeEstimate * ratio)
             let low    = max(1.0, point * 0.70)
@@ -848,7 +858,6 @@ struct AIEngine {
         let beta0 = yBar - beta1 * xBar
         let yHat  = max(1.0, beta0 + beta1 * safeEstimate)
 
-        // Residual variance — guard df >= 1
         let rss    = Syy - beta1 * Sxy
         let s2raw  = rss / max(n - 2.0, 1.0)
         let s2     = s2raw.isFinite && s2raw > 0 ? s2raw : 1.0
@@ -889,8 +898,6 @@ struct AIEngine {
         )
     }
 
-    // MARK: - Helpers
-
     private static func confidenceLevel(n: Int) -> PredictionConfidence {
         switch n {
         case 2:     return .low
@@ -900,8 +907,6 @@ struct AIEngine {
         }
     }
 
-    /// Two-tailed t critical values (hardcoded table).
-    /// df is clamped to the nearest available key; falls back to 1.282 (z ≈ 90%) if unknown.
     private static func tValue(df: Int, confidence: Int) -> Double {
         let table: [Int: [Int: Double]] = [
             1:  [80: 3.078, 85: 4.165, 90: 6.314,  95: 12.706],

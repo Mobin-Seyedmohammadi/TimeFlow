@@ -126,7 +126,7 @@ struct AISuggestionCard: View {
                 }
             }
 
-            // ── Explanation ────────────────────────────────────────────────────
+            // ── Explanation + data source (both gated by showExplanation) ─────
             if showExplanation {
                 Text(suggestion.explanation)
                     .font(.system(size: 13))
@@ -135,12 +135,11 @@ struct AISuggestionCard: View {
                     .padding(10)
                     .background(Color.tfBlue.opacity(0.06))
                     .cornerRadius(8)
-            }
 
-            // ── Data source ────────────────────────────────────────────────────
-            Text("Source: \(suggestion.dataSource)")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
+                Text("Source: \(suggestion.dataSource)")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
 
             // ── Actions ────────────────────────────────────────────────────────
             VStack(spacing: 8) {

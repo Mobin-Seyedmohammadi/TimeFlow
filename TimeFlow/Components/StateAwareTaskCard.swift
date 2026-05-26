@@ -7,7 +7,13 @@ struct StateAwareTaskCard: View {
     let warningState: WarningState
     let onOpen: () -> Void
 
-    @EnvironmentObject var vm: TimeFlowViewModel
+    private var isActuallyOvertime: Bool {
+        elapsedMinutes >= Double(task.finalEstimateMinutes)
+    }
+
+    private var overtimeMinutes: Double {
+        max(0, elapsedMinutes - Double(task.finalEstimateMinutes))
+    }
 
     private var progressFraction: Double {
         guard task.finalEstimateMinutes > 0 else { return 0 }
@@ -15,6 +21,7 @@ struct StateAwareTaskCard: View {
     }
 
     private var stateColor: Color {
+        if isActuallyOvertime { return .tfOrange }
         switch warningState {
         case .none: return task.status == .paused ? Color(hex: "D97706") : .tfBlue
         case .nearLimit, .reachedLimit: return .tfOrange
@@ -24,6 +31,7 @@ struct StateAwareTaskCard: View {
 
     private var stateLabel: String {
         if !isRunning && task.status == .paused { return "Paused" }
+        if isActuallyOvertime { return "Overtime" }
         switch warningState {
         case .none: return isRunning ? "Active" : "Ready"
         case .nearLimit: return "Near Limit"
@@ -34,6 +42,7 @@ struct StateAwareTaskCard: View {
 
     private var stateIcon: String {
         if !isRunning && task.status == .paused { return "pause.circle.fill" }
+        if isActuallyOvertime { return "clock.badge.exclamationmark.fill" }
         switch warningState {
         case .none: return isRunning ? "timer" : "play.circle.fill"
         case .nearLimit: return "exclamationmark.triangle.fill"
@@ -85,11 +94,11 @@ struct StateAwareTaskCard: View {
                     }
                 }
 
-                if warningState == .overtime {
+                if isActuallyOvertime {
                     HStack(spacing: 6) {
                         Image(systemName: "clock.badge.exclamationmark.fill")
                             .font(.system(size: 12))
-                        Text("Extra time: +\(Int(vm.overtimeMinutes)) min")
+                        Text("Extra time: +\(Int(overtimeMinutes)) min")
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .foregroundColor(.tfOrange)

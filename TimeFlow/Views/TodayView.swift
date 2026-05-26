@@ -13,7 +13,8 @@ struct TodayView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Header
+
+                // ── Header ─────────────────────────────────────────────────────
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Today")
                         .font(.system(size: 34, weight: .bold))
@@ -25,7 +26,7 @@ struct TodayView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
-                // Summary card
+                // ── Summary card ───────────────────────────────────────────────
                 TimeFlowCard {
                     HStack(spacing: 0) {
                         statColumn(
@@ -36,16 +37,23 @@ struct TodayView: View {
                         )
                         Divider().frame(height: 50)
                         statColumn(
+                            value: "\(vm.activeSessions.count)",
+                            label: "Active Tasks",
+                            icon: "timer",
+                            color: .tfBlue
+                        )
+                        Divider().frame(height: 50)
+                        statColumn(
                             value: "\(vm.completedTasks.count)",
                             label: "Total Tasks",
                             icon: "list.bullet",
-                            color: .tfBlue
+                            color: Color(hex: "6B7280")
                         )
                     }
                 }
                 .padding(.horizontal, 16)
 
-                // Accuracy card
+                // ── Accuracy card ──────────────────────────────────────────────
                 SectionCard(title: "Estimation Accuracy", icon: "chart.line.uptrend.xyaxis") {
                     Text(vm.overallAccuracyDescription)
                         .font(.system(size: 14))
@@ -53,52 +61,68 @@ struct TodayView: View {
                 }
                 .padding(.horizontal, 16)
 
-                // Active task OR start button
-                if let task = vm.activeTask {
+                // ── Active tasks list ──────────────────────────────────────────
+                if !vm.activeSessions.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Active Task")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 16)
-
-                        StateAwareTaskCard(
-                            task: task,
-                            elapsedMinutes: vm.elapsedMinutes,
-                            isRunning: vm.isTimerRunning,
-                            warningState: vm.warningState,
-                            onOpen: { vm.showActiveTask = true }
-                        )
+                        HStack {
+                            Text(vm.activeSessions.count == 1 ? "Active Task" : "Active Tasks")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            if vm.activeSessions.count > 1 {
+                                Text("\(vm.activeSessions.count)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.tfBlue)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(Color.tfBlue.opacity(0.10))
+                                    .cornerRadius(6)
+                            }
+                        }
                         .padding(.horizontal, 16)
+
+                        ForEach(vm.activeSessions) { session in
+                            StateAwareTaskCard(
+                                task: session.task,
+                                elapsedMinutes: session.elapsedMinutes,
+                                isRunning: session.isRunning,
+                                warningState: session.warningState,
+                                onOpen: {
+                                    vm.focusedSessionID = session.id
+                                    vm.showActiveTask = true
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                        }
                     }
                 } else {
-                    // Empty state + start button
-                    VStack(spacing: 16) {
-                        TimeFlowCard {
-                            VStack(spacing: 12) {
-                                Image(systemName: "timer")
-                                    .font(.system(size: 36))
-                                    .foregroundColor(.tfBlue.opacity(0.5))
-                                Text("No active task yet")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.tfDark)
-                                Text("Start a task and TimeFlow will help you compare your estimate with reality.")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
+                    // Empty state
+                    TimeFlowCard {
+                        VStack(spacing: 12) {
+                            Image(systemName: "timer")
+                                .font(.system(size: 36))
+                                .foregroundColor(.tfBlue.opacity(0.5))
+                            Text("No active tasks yet")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.tfDark)
+                            Text("Start a task and TimeFlow will help you compare your estimate with reality.")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
                         }
-                        .padding(.horizontal, 16)
-
-                        PrimaryButton("Start New Task", icon: "plus.circle.fill") {
-                            vm.startNewTask()
-                        }
-                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
                     }
+                    .padding(.horizontal, 16)
                 }
 
-                // Recent insight
+                // ── Start New Task button (always visible) ─────────────────────
+                PrimaryButton("Start New Task", icon: "plus.circle.fill") {
+                    vm.startNewTask()
+                }
+                .padding(.horizontal, 16)
+
+                // ── Recent insight ─────────────────────────────────────────────
                 if let insight = vm.recentInsight {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Recent Insight")
@@ -127,7 +151,7 @@ struct TodayView: View {
                     }
                 }
 
-                // Prototype note
+                // ── Prototype mode note ────────────────────────────────────────
                 if vm.prototypeMode {
                     HStack(spacing: 6) {
                         Image(systemName: "bolt.fill")
@@ -147,12 +171,10 @@ struct TodayView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                if vm.activeTask == nil {
-                    Button(action: { vm.startNewTask() }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.tfBlue)
-                    }
+                Button(action: { vm.startNewTask() }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.tfBlue)
                 }
             }
         }
@@ -164,10 +186,10 @@ struct TodayView: View {
                 .font(.system(size: 18))
                 .foregroundColor(color)
             Text(value)
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundColor(.tfDark)
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 10))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }

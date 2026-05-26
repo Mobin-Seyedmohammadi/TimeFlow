@@ -6,28 +6,24 @@ struct ActiveTaskView: View {
 
     private var task: TimeFlowTask? { vm.activeTask }
 
+    // True when elapsed time has passed the estimate, regardless of banner/warningState
+    private var isActuallyOvertime: Bool {
+        guard let t = task else { return false }
+        return vm.elapsedMinutes >= Double(t.finalEstimateMinutes)
+    }
+
+    // True when elapsed time is past the near-limit threshold
+    private var isNearLimit: Bool {
+        guard let t = task else { return false }
+        return vm.elapsedMinutes >= Double(t.finalEstimateMinutes) * vm.warningThreshold
+    }
+
     var body: some View {
         ZStack {
             Color.tfBackground.ignoresSafeArea()
 
             if let task = task {
                 VStack(spacing: 0) {
-
-                    // ── Pinned warning card — always visible, no scrolling needed ──────
-                    if vm.warningState != .none {
-                        WarningCard(
-                            state: vm.warningState,
-                            elapsedMinutes: vm.elapsedMinutes,
-                            estimateMinutes: task.finalEstimateMinutes,
-                            overtimeMinutes: vm.overtimeMinutes,
-                            onFinish: { vm.finishTask() },
-                            onContinue: { vm.continueTask() }
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: vm.warningState)
-                    }
 
                     ScrollView {
                         VStack(spacing: 20) {
@@ -71,7 +67,7 @@ struct ActiveTaskView: View {
                                         color: .secondary
                                     )
                                     Divider().frame(height: 44)
-                                    if vm.warningState == .overtime {
+                                    if isActuallyOvertime {
                                         timeStatColumn(
                                             label: "Extra",
                                             value: "+\(Int(vm.overtimeMinutes)) min",
@@ -81,7 +77,7 @@ struct ActiveTaskView: View {
                                         timeStatColumn(
                                             label: "Remaining",
                                             value: vm.formattedRemaining(),
-                                            color: vm.warningState == .nearLimit ? .tfOrange : .tfBlue
+                                            color: isNearLimit ? .tfOrange : .tfBlue
                                         )
                                     }
                                 }
@@ -103,8 +99,10 @@ struct ActiveTaskView: View {
                             }
                             .padding(.horizontal, 16)
 
-                            // Continued message
-                            if vm.continuedAfterWarning && vm.warningState == .overtime {
+                            // "Continued past estimate" info card
+                            // Shown based on actual elapsed time, not warningState
+                            // (warningState may be .none after the banner was dismissed)
+                            if vm.continuedAfterWarning && isActuallyOvertime {
                                 HStack(spacing: 8) {
                                     Image(systemName: "info.circle.fill")
                                         .foregroundColor(.tfBlue)
@@ -199,22 +197,25 @@ struct ActiveTaskView: View {
         }
     }
 
+    // Ring and elapsed label color: orange when near limit or overtime, blue otherwise.
+    // Based on actual elapsed time, not warningState (banner may have been dismissed).
     private var ringColor: Color {
-        switch vm.warningState {
-        case .none: return .tfBlue
-        case .nearLimit, .reachedLimit, .overtime: return .tfOrange
-        }
+        isActuallyOvertime || isNearLimit ? .tfOrange : .tfBlue
     }
 
+    // Status chip: reflects actual elapsed time so it stays correct after banner dismissal.
     private var statusChip: some View {
         let (label, icon, color): (String, String, Color) = {
-            if !vm.isTimerRunning { return ("Paused", "pause.circle.fill", Color(hex: "D97706")) }
-            switch vm.warningState {
-            case .none: return ("Active", "timer", .tfBlue)
-            case .nearLimit: return ("Near Limit", "exclamationmark.triangle.fill", .tfOrange)
-            case .reachedLimit: return ("Time Reached", "flag.checkered", .tfOrange)
-            case .overtime: return ("Overtime", "clock.badge.exclamationmark.fill", .tfOrange)
+            if !vm.isTimerRunning {
+                return ("Paused", "pause.circle.fill", Color(hex: "D97706"))
             }
+            if isActuallyOvertime {
+                return ("Overtime", "clock.badge.exclamationmark.fill", .tfOrange)
+            }
+            if isNearLimit {
+                return ("Near Limit", "exclamationmark.triangle.fill", .tfOrange)
+            }
+            return ("Active", "timer", .tfBlue)
         }()
         return StatusChip(label, icon: icon, color: color)
     }

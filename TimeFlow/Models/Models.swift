@@ -147,11 +147,42 @@ enum TaskStatus: String, Codable {
 }
 
 // MARK: - WarningState
-enum WarningState {
+enum WarningState: String, Codable {
     case none
     case nearLimit
     case reachedLimit
     case overtime
+}
+
+// MARK: - ActiveTaskSession
+/// Bundles all per-task timer state so multiple tasks can run concurrently.
+struct ActiveTaskSession: Identifiable, Codable {
+    var task: TimeFlowTask
+    /// Wall-clock anchor stored as epoch. nil when paused.
+    var taskStartEpoch: Double?
+    var elapsedMinutes: Double
+    var isRunning: Bool
+    var warningState: WarningState
+    var continuedAfterWarning: Bool
+    var hasShownNearLimit: Bool
+    var hasShownReachedLimit: Bool
+    var warningBannerDismissed: Bool
+
+    var id: UUID { task.id }
+
+    var overtimeMinutes: Double {
+        max(0, elapsedMinutes - Double(task.finalEstimateMinutes))
+    }
+    var remainingMinutes: Double {
+        max(0, Double(task.finalEstimateMinutes) - elapsedMinutes)
+    }
+    var progressFraction: Double {
+        guard task.finalEstimateMinutes > 0 else { return 0 }
+        return min(elapsedMinutes / Double(task.finalEstimateMinutes), 1.0)
+    }
+    var isActuallyOvertime: Bool {
+        elapsedMinutes >= Double(task.finalEstimateMinutes)
+    }
 }
 
 // MARK: - AIConfidence

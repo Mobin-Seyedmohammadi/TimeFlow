@@ -38,6 +38,7 @@ struct SettingsView: View {
                                         .background(vm.warningThreshold == option.value ? Color.tfBlue : Color.tfBlue.opacity(0.08))
                                         .cornerRadius(9)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -87,6 +88,7 @@ struct SettingsView: View {
                                         .background(vm.predictionConfidence == option.value ? Color.tfBlue : Color.tfBlue.opacity(0.08))
                                         .cornerRadius(9)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
