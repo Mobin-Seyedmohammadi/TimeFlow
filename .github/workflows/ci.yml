@@ -1,0 +1,22 @@
+name: iOS CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build (Simulator)
+        run: |
+          xcodebuild \
+            -project TimeFlow.xcodeproj \
+            -scheme TimeFlow \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            build
