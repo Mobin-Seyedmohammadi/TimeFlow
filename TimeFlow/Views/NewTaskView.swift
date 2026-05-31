@@ -1,51 +1,17 @@
 import SwiftUI
 
+// MARK: - Step 1: Category selection
+
 struct NewTaskView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var titleFocused: Bool
-    @State private var step = 1
 
-    private var canProceed: Bool {
-        !vm.draftTitle.trimmingCharacters(in: .whitespaces).isEmpty && vm.draftUserEstimate > 0
-    }
+    /// Drives the NavigationLink push to Step 2.
+    @State private var pushStep2 = false
+    /// Tracks which card was just tapped so we can briefly highlight it.
+    @State private var tappedCategory: TaskCategory? = nil
 
     var body: some View {
-        ZStack {
-            Color.tfBackground.ignoresSafeArea()
-
-            if step == 1 {
-                categoryStep
-            } else {
-                detailStep
-            }
-        }
-        .navigationTitle(step == 1 ? "What type of task?" : "Name your task")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Group {
-                    if step == 1 {
-                        Button("Cancel") { dismiss() }
-                            .foregroundColor(.secondary)
-                    } else {
-                        Button(action: { step = 1 }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Back")
-                            }
-                            .foregroundColor(.tfBlue)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Step 1: Category grid
-
-    private var categoryStep: some View {
         ScrollView {
             LazyVGrid(
                 columns: [GridItem(.flexible()), GridItem(.flexible())],
@@ -58,13 +24,31 @@ struct NewTaskView: View {
             .padding(16)
             .padding(.top, 4)
         }
+        .background(Color.tfBackground.ignoresSafeArea())
+        .navigationTitle("What type of task?")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Cancel") { dismiss() }
+                    .foregroundColor(.secondary)
+            }
+        }
+        // Push Step 2 onto the NavigationStack
+        .navigationDestination(isPresented: $pushStep2) {
+            NewTaskStep2View()
+        }
     }
 
     private func categoryCard(_ cat: TaskCategory) -> some View {
-        let isSelected = vm.draftCategory == cat
+        let isHighlighted = tappedCategory == cat
         return Button(action: {
             vm.draftCategory = cat
-            step = 2
+            tappedCategory = cat
+            // Brief highlight, then push
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                tappedCategory = nil
+                pushStep2 = true
+            }
         }) {
             VStack(spacing: 12) {
                 ZStack {
@@ -83,28 +67,36 @@ struct NewTaskView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 22)
-            .background(Color.tfCard)
+            .background(isHighlighted ? cat.color.opacity(0.22) : Color.tfCard)
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
-                        isSelected ? cat.color : Color.black.opacity(0.07),
-                        lineWidth: isSelected ? 2 : 1
+                        isHighlighted ? cat.color : Color.black.opacity(0.07),
+                        lineWidth: isHighlighted ? 2 : 1
                     )
             )
             .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
-            .scaleEffect(isSelected ? 0.97 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
     }
+}
 
-    // MARK: - Step 2: Name + estimate
+// MARK: - Step 2: Name + estimate
 
-    private var detailStep: some View {
+struct NewTaskStep2View: View {
+    @EnvironmentObject var vm: TimeFlowViewModel
+    @FocusState private var titleFocused: Bool
+
+    private var canProceed: Bool {
+        !vm.draftTitle.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
 
-                // Task name
+                // ── Task name ──────────────────────────────────────────────────
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Task Name", systemImage: "pencil.line")
                         .font(.system(size: 13, weight: .semibold))
@@ -122,7 +114,7 @@ struct NewTaskView: View {
                         .focused($titleFocused)
                 }
 
-                // Estimate stepper
+                // ── Estimate stepper ───────────────────────────────────────────
                 VStack(alignment: .leading, spacing: 14) {
                     Label("Your Estimate", systemImage: "clock")
                         .font(.system(size: 13, weight: .semibold))
@@ -134,7 +126,9 @@ struct NewTaskView: View {
                         }) {
                             Image(systemName: "minus.circle.fill")
                                 .font(.system(size: 36))
-                                .foregroundColor(vm.draftUserEstimate > 5 ? .tfBlue : Color(.systemGray4))
+                                .foregroundColor(
+                                    vm.draftUserEstimate > 5 ? .tfBlue : Color(.systemGray4)
+                                )
                         }
                         .disabled(vm.draftUserEstimate <= 5)
 
@@ -181,6 +175,13 @@ struct NewTaskView: View {
                 Spacer(minLength: 80)
             }
             .padding(16)
+        }
+        .background(Color.tfBackground.ignoresSafeArea())
+        .navigationTitle("Name your task")
+        .navigationBarTitleDisplayMode(.large)
+        // Navigate to AI review when Continue is tapped
+        .navigationDestination(isPresented: $vm.showEstimateReview) {
+            EstimateReviewView()
         }
         .safeAreaInset(edge: .bottom) {
             BottomActionBar {

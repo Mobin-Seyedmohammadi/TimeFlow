@@ -31,11 +31,9 @@ struct MainTabView: View {
             .sheet(isPresented: $vm.showNewTaskSheet) {
                 NavigationStack {
                     NewTaskView()
-                        .navigationDestination(isPresented: $vm.showEstimateReview) {
-                            EstimateReviewView()
-                        }
                 }
                 .environmentObject(vm)
+                .presentationDetents([.large])
             }
 
             // Full-screen cover for the focused active task timer
