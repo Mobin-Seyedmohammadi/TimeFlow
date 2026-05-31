@@ -56,14 +56,5 @@ struct TodayView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { vm.startNewTask() }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.tfBlue)
-                }
-            }
-        }
     }
 }
