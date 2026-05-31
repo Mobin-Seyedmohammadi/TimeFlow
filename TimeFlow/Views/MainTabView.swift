@@ -20,22 +20,10 @@ struct MainTabView: View {
                 .tag(0)
 
                 NavigationStack {
-                    HistoryView()
-                }
-                .tabItem { Label("History", systemImage: "list.bullet.rectangle") }
-                .tag(1)
-
-                NavigationStack {
                     InsightsView()
                 }
                 .tabItem { Label("Insights", systemImage: "chart.line.uptrend.xyaxis") }
-                .tag(2)
-
-                NavigationStack {
-                    SettingsView()
-                }
-                .tabItem { Label("Settings", systemImage: "gear") }
-                .tag(3)
+                .tag(1)
             }
             .accentColor(.tfBlue)
 

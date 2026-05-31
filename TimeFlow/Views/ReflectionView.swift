@@ -258,7 +258,7 @@ struct ReflectionView: View {
                 vm.startNewTask()
             }
         case .viewInsights:
-            vm.selectedTab = 2      // switch to Insights tab
+            vm.selectedTab = 1      // switch to Insights tab
             // showReflection already false; cover will animate out
         }
     }
@@ -271,7 +271,7 @@ struct ReflectionView: View {
     }
 
     private func navigateToInsights() {
-        vm.selectedTab = 2
+        vm.selectedTab = 1
         vm.showReflection = false
     }
 
