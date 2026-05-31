@@ -12,63 +12,51 @@ struct InsightsView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Header note
-                        HStack(spacing: 8) {
-                            Image(systemName: "cpu")
-                                .foregroundColor(.tfBlue)
-                                .font(.system(size: 14))
-                            Text("Insights are generated from your completed tasks. The more you complete, the better they get.")
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
+
+                        // 1. Your Overview
+                        TimeFlowCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Your Overview")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.tfDark)
+
+                                HStack(spacing: 0) {
+                                    statBlock("\(vm.completedTasks.count)", label: "Tasks Done")
+                                    Divider().frame(height: 40)
+                                    let underCount = vm.completedTasks.filter {
+                                        ($0.estimationDifferenceMinutes ?? 0) > 3
+                                    }.count
+                                    statBlock("\(underCount)", label: "Underestimated", color: .tfOrange)
+                                    Divider().frame(height: 40)
+                                    let accurateCount = vm.completedTasks.filter {
+                                        abs($0.estimationDifferenceMinutes ?? 99) <= 3
+                                    }.count
+                                    statBlock("\(accurateCount)", label: "Accurate", color: Color(hex: "059669"))
+                                }
+                            }
                         }
-                        .padding(12)
-                        .background(Color.tfBlue.opacity(0.06))
-                        .cornerRadius(10)
                         .padding(.horizontal, 16)
 
-                        // Stats overview
-                        if !vm.completedTasks.isEmpty {
-                            TimeFlowCard {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text("Your Overview")
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundColor(.tfDark)
-
-                                    HStack(spacing: 0) {
-                                        statBlock("\(vm.completedTasks.count)", label: "Tasks Done")
-                                        Divider().frame(height: 40)
-                                        let underCount = vm.completedTasks.filter { ($0.estimationDifferenceMinutes ?? 0) > 3 }.count
-                                        statBlock("\(underCount)", label: "Underestimated", color: .tfOrange)
-                                        Divider().frame(height: 40)
-                                        let accurateCount = vm.completedTasks.filter { abs($0.estimationDifferenceMinutes ?? 99) <= 3 }.count
-                                        statBlock("\(accurateCount)", label: "Accurate", color: Color(hex: "059669"))
+                        // 2. By Category
+                        SectionCard(title: "By Category", icon: "chart.bar.fill", iconColor: .tfBlue) {
+                            VStack(spacing: 10) {
+                                ForEach(categoryStatsRows(), id: \.category.id) { stat in
+                                    NavigationLink {
+                                        CategoryDetailView(category: stat.category)
+                                    } label: {
+                                        categoryRow(stat)
                                     }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
                             }
-                            .padding(.horizontal, 16)
-
-                            // Category breakdown
-                            SectionCard(title: "By Category", icon: "chart.bar.fill", iconColor: .tfBlue) {
-                                VStack(spacing: 10) {
-                                    ForEach(categoryStatsRows(), id: \.category.id) { stat in
-                                        NavigationLink {
-                                            CategoryDetailView(category: stat.category)
-                                        } label: {
-                                            categoryRow(stat)
-                                        }
-                                        .buttonStyle(PlainButtonStyle())
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-
-                            // Regression Analysis section
-                            regressionSection
                         }
+                        .padding(.horizontal, 16)
 
-                        // Insight cards
-                        ForEach(vm.insights) { insight in
-                            insightCard(insight)
+                        // 3. Overall accuracy/pattern (only when ≥ 3 tasks)
+                        if let overall = vm.insights.first(where: {
+                            $0.title == "Overall Pattern" || $0.title == "Overall Accuracy"
+                        }) {
+                            insightCard(overall)
                                 .padding(.horizontal, 16)
                         }
 
@@ -80,137 +68,6 @@ struct InsightsView: View {
         }
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.large)
-    }
-
-    // MARK: - Regression Analysis
-
-    @ViewBuilder
-    private var regressionSection: some View {
-        // Show categories that have n >= 2 regression stats
-        let regressionCategories = TaskCategory.allCases.compactMap { cat -> (TaskCategory, RegressionStats)? in
-            guard let stats = vm.categoryStats[cat.rawValue], stats.n >= 2 else { return nil }
-            return (cat, stats)
-        }
-
-        if !regressionCategories.isEmpty {
-            SectionCard(title: "AI Pattern Analysis", icon: "function", iconColor: .tfBlue) {
-                VStack(spacing: 14) {
-                    ForEach(Array(regressionCategories.enumerated()), id: \.offset) { index, pair in
-                        let (category, stats) = pair
-                        if index > 0 { Divider() }
-                        regressionRow(category: category, stats: stats)
-                    }
-
-                    // Show categories with exactly 1 task
-                    let singleCategories = TaskCategory.allCases.filter { cat in
-                        vm.categoryStats[cat.rawValue]?.n == 1
-                    }
-                    if !singleCategories.isEmpty {
-                        if !regressionCategories.isEmpty { Divider() }
-                        ForEach(singleCategories) { cat in
-                            HStack(spacing: 10) {
-                                Image(systemName: cat.icon)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(cat.color)
-                                    .frame(width: 18)
-                                Text(cat.rawValue)
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.tfDark)
-                                Spacer()
-                                Text("1 task — complete more for pattern analysis")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.trailing)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-    }
-
-    private func regressionRow(category: TaskCategory, stats: RegressionStats) -> some View {
-        let n    = stats.n
-        let sumX = stats.sumX
-        let sumY = stats.sumY
-        let Sxx  = stats.sumXX - (sumX * sumX) / n
-        let Sxy  = stats.sumXY - (sumX * sumY) / n
-        let Syy  = stats.sumYY - (stats.sumY * stats.sumY) / n
-
-        // Slope: for every 10 min planned → beta1*10 min actual
-        let beta1: Double = Sxx > 1e-9 ? (Sxy / Sxx) : (sumX > 1e-9 ? sumY / sumX : 1.0)
-        let per10 = max(1, Int((beta1 * 10).rounded()))
-
-        // R² = Sxy² / (Sxx * Syy), clamped to [0, 1]
-        let r2: Double
-        if Sxx > 1e-9 && Syy > 1e-9 {
-            r2 = min(1.0, max(0.0, (Sxy * Sxy) / (Sxx * Syy)))
-        } else {
-            r2 = 0.0
-        }
-        let accuracyPct = Int((r2 * 100).rounded())
-
-        // Bias at the average estimate level
-        let biasRaw = sumX > 1e-9 ? ((sumY / sumX) - 1.0) * 100 : 0.0
-        let biasPct = Int(biasRaw.rounded())
-
-        let biasText: String
-        if abs(biasPct) <= 5 {
-            biasText = "Estimates are accurate on average"
-        } else if biasPct > 0 {
-            biasText = "Tends to underestimate by ~\(biasPct)%"
-        } else {
-            biasText = "Tends to overestimate by ~\(abs(biasPct))%"
-        }
-
-        let biasColor: Color = abs(biasPct) <= 5 ? Color(hex: "059669") : (biasPct > 0 ? .tfOrange : .tfBlue)
-
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: category.icon)
-                    .font(.system(size: 14))
-                    .foregroundColor(category.color)
-                Text(category.rawValue)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.tfDark)
-                Spacer()
-                Text("Based on \(Int(n)) tasks")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 0) {
-                regressionStat(
-                    label: "Per 10 min planned",
-                    value: "\(per10) min actual",
-                    color: .tfDark
-                )
-                Divider().frame(height: 34)
-                regressionStat(
-                    label: "Model fit (R²)",
-                    value: "\(accuracyPct)%",
-                    color: accuracyPct >= 70 ? Color(hex: "059669") : Color(hex: "D97706")
-                )
-            }
-
-            Text(biasText)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(biasColor)
-        }
-    }
-
-    private func regressionStat(label: String, value: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(color)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
     }
 
     // MARK: - Empty State
@@ -231,7 +88,7 @@ struct InsightsView: View {
         }
     }
 
-    // MARK: - Insight Cards
+    // MARK: - Overall insight card
 
     private func insightCard(_ insight: Insight) -> some View {
         let accentColor: Color = {
@@ -254,15 +111,10 @@ struct InsightsView: View {
                         .font(.system(size: 18))
                         .foregroundColor(accentColor)
                 }
-
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack {
-                        Text(insight.title)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.tfDark)
-                        Spacer()
-                        typeLabel(insight.type, color: accentColor)
-                    }
+                    Text(insight.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.tfDark)
                     Text(insight.message)
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
@@ -272,26 +124,7 @@ struct InsightsView: View {
         }
     }
 
-    private func typeLabel(_ type: InsightType, color: Color) -> some View {
-        let label: String = {
-            switch type {
-            case .improvement:    return "Progress"
-            case .pattern:        return "Pattern"
-            case .recommendation: return "Tip"
-            case .accuracy:       return "Accuracy"
-            case .aiNote:         return "AI Note"
-            }
-        }()
-        return Text(label)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundColor(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.1))
-            .cornerRadius(6)
-    }
-
-    // MARK: - Category Stats (for "By Category" row list)
+    // MARK: - Category Stats
 
     private struct CategoryStatRow {
         let category: TaskCategory
