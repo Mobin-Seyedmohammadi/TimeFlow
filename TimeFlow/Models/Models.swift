@@ -2,31 +2,10 @@ import SwiftUI
 
 // MARK: - Color Palette
 extension Color {
-    // Backgrounds
     static let tfBackground = Color(hex: "F6EEE3")
-
-    // Brand
+    static let tfDark = Color.black
     static let tfBlue = Color(hex: "2B00FF")
     static let tfOrange = Color(hex: "FF4200")
-
-    // Gradient palette
-    static let gradLavender = Color(hex: "C8BFDF")
-    static let gradPeach = Color(hex: "E8C4B0")
-    static let gradBlush = Color(hex: "F2D4CC")
-    static let gradMauve = Color(hex: "D4B8C8")
-    static let gradCream = Color(hex: "F6EEE3")
-    static let gradMint = Color(hex: "BFD9D4")
-    static let gradSky = Color(hex: "BFD0E8")
-
-    // Text
-    static let tfDark = Color.black
-    static let tfSecondary = Color(hex: "6B6B6B")
-
-    // Glass
-    static let glassWhite = Color.white.opacity(0.55)
-    static let glassBorder = Color.white.opacity(0.35)
-
-    // Legacy alias kept for backwards compat
     static let tfCard = Color.white
 
     init(hex: String) {

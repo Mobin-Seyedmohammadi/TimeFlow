@@ -3,6 +3,7 @@ import SwiftUI
 struct ReflectionView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
 
+    // Alert state for unsaved reflection prompts
     @State private var showUnsavedAlert = false
     @State private var pendingAction: PendingAction = .none
 
@@ -10,221 +11,195 @@ struct ReflectionView: View {
         case none, startNewTask, viewInsights
     }
 
+    /// True while the user has not yet tapped "Save Reflection".
     private var isUnsaved: Bool { vm.completedTaskForReflection != nil }
 
     var body: some View {
-        ZStack {
-            AppGradients.reflection
+        ScrollView {
+            if let task = vm.completedTaskForReflection ?? savedTaskSnapshot {
+                VStack(spacing: 20) {
+                    // Completed header
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 52))
+                            .foregroundColor(Color(hex: "059669"))
+                        Text("Task Complete!")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.tfDark)
+                        Text(task.title)
+                            .font(.system(size: 17))
+                            .foregroundColor(.secondary)
+                        StatusChip(category: task.category)
+                    }
+                    .padding(.top, 16)
 
-            ScrollView {
-                if let task = vm.completedTaskForReflection ?? savedTaskSnapshot {
-                    VStack(spacing: 20) {
-                        // Completed header
-                        VStack(spacing: 12) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 52))
-                                .foregroundColor(Color(hex: "059669"))
-                            Text("Task Complete!")
-                                .font(Font.dmSans(28, weight: .bold))
-                                .foregroundColor(.tfDark)
-                            Text(task.title)
-                                .font(Font.dmSans(17))
-                                .foregroundColor(.tfSecondary)
-                            StatusChip(category: task.category)
+                    // Unsaved reminder banner
+                    if isUnsaved {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(Color(hex: "D97706"))
+                            Text("Tap \"Save Reflection\" to add this task to your history.")
+                                .font(.system(size: 13))
+                                .foregroundColor(Color(hex: "D97706"))
                         }
-                        .padding(.top, 16)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(hex: "D97706").opacity(0.10))
+                        .cornerRadius(10)
+                        .padding(.horizontal, 16)
+                    }
 
-                        // Unsaved reminder banner
-                        if isUnsaved {
+                    // Time breakdown card
+                    TimeFlowCard {
+                        VStack(spacing: 16) {
+                            Text("Time Breakdown")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            HStack(spacing: 0) {
+                                timeBlock("Your estimate", value: "\(task.userEstimateMinutes) min", color: Color.black.opacity(0.5))
+                                Divider().frame(height: 50)
+                                timeBlock("AI suggested", value: "\(task.aiSuggestedMinutes) min", color: .tfBlue)
+                                Divider().frame(height: 50)
+                                timeBlock("Actual time", value: "\(task.actualDurationMinutes ?? 0) min", color: Color(hex: "059669"))
+                            }
+
+                            // Visual bar comparison
+                            let maxVal = max(task.userEstimateMinutes, task.aiSuggestedMinutes, task.actualDurationMinutes ?? 1)
+                            VStack(spacing: 8) {
+                                barRow("Your estimate", minutes: task.userEstimateMinutes, max: maxVal, color: Color.black.opacity(0.35))
+                                barRow("AI suggested", minutes: task.aiSuggestedMinutes, max: maxVal, color: .tfBlue)
+                                barRow("Actual", minutes: task.actualDurationMinutes ?? 0, max: maxVal, color: Color(hex: "059669"))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
+                    // Result interpretation
+                    TimeFlowCard {
+                        VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                    .foregroundColor(Color(hex: "D97706"))
-                                Text("Tap \"Save Reflection\" to add this task to your history.")
-                                    .font(Font.dmSans(13))
-                                    .foregroundColor(Color(hex: "D97706"))
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(hex: "D97706").opacity(0.10))
-                            .cornerRadius(10)
-                            .padding(.horizontal, 16)
-                        }
-
-                        // Time breakdown card
-                        TimeFlowCard {
-                            VStack(spacing: 16) {
-                                Text("Time Breakdown")
-                                    .font(Font.dmSans(13, weight: .medium))
-                                    .foregroundColor(.tfSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                                HStack(spacing: 0) {
-                                    timeBlock("Your estimate", value: "\(task.userEstimateMinutes) min", color: Color(hex: "C8BFDF"))
-                                    Divider().frame(height: 50)
-                                    timeBlock("AI suggested", value: "\(task.aiSuggestedMinutes) min", color: Color.tfBlue.opacity(0.7))
-                                    Divider().frame(height: 50)
-                                    timeBlock("Actual time", value: "\(task.actualDurationMinutes ?? 0) min", color: Color(hex: "C0603A"))
-                                }
-
-                                // Visual bar comparison
-                                let maxVal = max(task.userEstimateMinutes, task.aiSuggestedMinutes, task.actualDurationMinutes ?? 1)
-                                VStack(spacing: 8) {
-                                    barRow("Your estimate", minutes: task.userEstimateMinutes, max: maxVal, color: Color(hex: "C8BFDF"))
-                                    barRow("AI suggested", minutes: task.aiSuggestedMinutes, max: maxVal, color: Color.tfBlue.opacity(0.7))
-                                    barRow("Actual", minutes: task.actualDurationMinutes ?? 0, max: maxVal, color: Color(hex: "C0603A"))
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-
-                        // Result interpretation
-                        TimeFlowCard {
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: interpretationIcon(task))
-                                        .foregroundColor(interpretationColor(task))
-                                        .font(.system(size: 18))
-                                    Text("Result")
-                                        .font(Font.dmSans(17, weight: .bold))
-                                        .foregroundColor(.tfDark)
-                                    Spacer()
-                                    EstimationLabelChip(label: task.estimationLabel, color: task.estimationLabelColor)
-                                }
-                                Text(vm.reflectionMessage(for: task))
-                                    .font(Font.dmSans(17))
+                                Image(systemName: interpretationIcon(task))
+                                    .foregroundColor(interpretationColor(task))
+                                    .font(.system(size: 18))
+                                Text("Result")
+                                    .font(.system(size: 15, weight: .semibold))
                                     .foregroundColor(.tfDark)
-                                Text(vm.aiComparison(for: task))
-                                    .font(Font.dmSans(15))
-                                    .foregroundColor(.tfSecondary)
+                                Spacer()
+                                EstimationLabelChip(label: task.estimationLabel, color: task.estimationLabelColor)
+                            }
+                            Text(vm.reflectionMessage(for: task))
+                                .font(.system(size: 16))
+                                .foregroundColor(.tfDark)
+                            Text(vm.aiComparison(for: task))
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
+                    // Learning insight
+                    TimeFlowCard {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "lightbulb.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.tfBlue)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Learning Insight")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.tfDark)
+                                Text(vm.learningInsight(for: task))
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        .padding(.horizontal, 16)
+                    }
+                    .padding(.horizontal, 16)
 
-                        // Learning insight
-                        TimeFlowCard {
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: "lightbulb.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.tfBlue)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Learning Insight")
-                                        .font(Font.dmSans(17, weight: .bold))
-                                        .foregroundColor(.tfDark)
-                                    Text(vm.learningInsight(for: task))
-                                        .font(Font.dmSans(15))
-                                        .foregroundColor(.tfSecondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-
-                        // Full comparison card
-                        TimeFlowCard {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("FULL COMPARISON")
-                                    .font(Font.dmSans(13, weight: .medium))
-                                    .foregroundColor(.tfSecondary)
-                                    .kerning(0.5)
-                                VStack(spacing: 6) {
-                                    comparisonRow("Your original estimate", minutes: task.userEstimateMinutes, color: Color(hex: "C8BFDF"))
-                                    comparisonRow("AI suggested", minutes: task.aiSuggestedMinutes, color: Color.tfBlue.opacity(0.7))
-                                    comparisonRow("Final selected estimate", minutes: task.finalEstimateMinutes, color: Color(hex: "7C3AED"))
-                                    comparisonRow("Actual duration", minutes: task.actualDurationMinutes ?? 0, color: Color(hex: "C0603A"))
-                                    if let diff = task.estimationDifferenceMinutes {
-                                        Divider()
-                                        HStack {
-                                            Text("Difference")
-                                                .font(Font.dmSans(13))
-                                                .foregroundColor(.tfSecondary)
-                                            Spacer()
-                                            Text(diff >= 0 ? "+\(diff) min" : "\(diff) min")
-                                                .font(Font.dmSans(13, weight: .bold))
-                                                .foregroundColor(abs(diff) <= 3 ? Color(hex: "059669") : (diff > 0 ? .tfOrange : .tfBlue))
-                                        }
+                    // Full comparison card
+                    TimeFlowCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Full Comparison")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            VStack(spacing: 6) {
+                                comparisonRow("Your original estimate", minutes: task.userEstimateMinutes, color: Color.black.opacity(0.5))
+                                comparisonRow("AI suggested", minutes: task.aiSuggestedMinutes, color: .tfBlue)
+                                comparisonRow("Final selected estimate", minutes: task.finalEstimateMinutes, color: Color(hex: "7C3AED"))
+                                comparisonRow("Actual duration", minutes: task.actualDurationMinutes ?? 0, color: Color(hex: "059669"))
+                                if let diff = task.estimationDifferenceMinutes {
+                                    Divider()
+                                    HStack {
+                                        Text("Difference")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Text(diff >= 0 ? "+\(diff) min" : "\(diff) min")
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(abs(diff) <= 3 ? Color(hex: "059669") : (diff > 0 ? .tfOrange : .tfBlue))
                                     }
                                 }
                             }
                         }
-                        .padding(.horizontal, 16)
+                    }
+                    .padding(.horizontal, 16)
 
-                        Spacer(minLength: 160)
-                    }
-                } else {
-                    VStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: 40))
-                            .foregroundColor(.tfSecondary)
-                        Text("No task to reflect on.")
-                            .font(Font.dmSans(17))
-                            .foregroundColor(.tfSecondary)
-                    }
-                    .padding(.top, 80)
-                    .frame(maxWidth: .infinity)
+                    Spacer(minLength: 160)
                 }
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 40))
+                        .foregroundColor(.secondary)
+                    Text("No task to reflect on.")
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 80)
+                .frame(maxWidth: .infinity)
             }
         }
+        .background(Color.tfBackground.ignoresSafeArea())
         .navigationTitle("Reflection")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            // Snapshot once; kept alive for display during dismiss animation after saving
             if let task = vm.completedTaskForReflection {
                 savedTaskSnapshot = task
             }
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
+                // Discard button — explicitly exits without saving
                 Button {
                     vm.discardReflection()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.tfSecondary)
+                        .foregroundColor(.secondary)
                 }
             }
         }
         .safeAreaInset(edge: .bottom) {
             BottomActionBar {
                 VStack(spacing: 8) {
-                    // Primary: Save
-                    Button(action: { vm.saveReflection() }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Save Reflection")
-                                .font(Font.dmSans(17, weight: .medium))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(Color.tfBlue)
-                        .foregroundColor(.white)
-                        .cornerRadius(16)
+                    // Primary: Save — the ONLY path that persists to history
+                    PrimaryButton("Save Reflection", icon: "checkmark.circle.fill") {
+                        vm.saveReflection()
                     }
 
-                    // Start Another Task
-                    Button(action: {
+                    // Start Another Task — prompts if unsaved
+                    PrimaryButton("Start Another Task", icon: "plus.circle", style: .outline) {
                         if isUnsaved {
                             pendingAction = .startNewTask
                             showUnsavedAlert = true
                         } else {
                             launchNewTask()
                         }
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus.circle")
-                            Text("Start Another Task")
-                                .font(Font.dmSans(17, weight: .medium))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(.ultraThinMaterial)
-                        .foregroundColor(.tfDark)
-                        .cornerRadius(16)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .strokeBorder(Color.white.opacity(0.5), lineWidth: 1)
-                        )
                     }
 
-                    // View Insights
+                    // View Insights — prompts if unsaved
                     Button {
                         if isUnsaved {
                             pendingAction = .viewInsights
@@ -237,13 +212,14 @@ struct ReflectionView: View {
                             Image(systemName: "chart.line.uptrend.xyaxis")
                                 .font(.system(size: 13))
                             Text("View Insights")
-                                .font(Font.dmSans(15, weight: .medium))
+                                .font(.system(size: 15, weight: .medium))
                         }
-                        .foregroundColor(.tfSecondary)
+                        .foregroundColor(.secondary)
                     }
                 }
             }
         }
+        // ── Unsaved reflection alert ───────────────────────────────────────────
         .alert(alertTitle, isPresented: $showUnsavedAlert) {
             Button("Save and Continue") {
                 vm.saveReflection()
@@ -277,11 +253,13 @@ struct ReflectionView: View {
         switch action {
         case .none: break
         case .startNewTask:
+            // showReflection is already false; wait for dismiss animation then open sheet
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                 vm.startNewTask()
             }
         case .viewInsights:
-            vm.selectedTab = 1
+            vm.selectedTab = 1      // switch to Insights tab
+            // showReflection already false; cover will animate out
         }
     }
 
@@ -297,7 +275,13 @@ struct ReflectionView: View {
         vm.showReflection = false
     }
 
+    // MARK: - Snapshot for display after saving
+    // After saveReflection() clears completedTaskForReflection the view briefly has no task.
+    // We snapshot the task on appear so the UI doesn't flash empty during the dismiss animation.
     @State private var savedTaskSnapshot: TimeFlowTask? = nil
+
+    // Populated once in onAppear; doesn't react to further changes so the dismiss animation
+    // still has something to render after completedTaskForReflection is cleared.
 
     // MARK: - Helpers
 
@@ -308,7 +292,7 @@ struct ReflectionView: View {
     }
 
     private func interpretationColor(_ task: TimeFlowTask) -> Color {
-        guard let diff = task.estimationDifferenceMinutes else { return .tfSecondary }
+        guard let diff = task.estimationDifferenceMinutes else { return .secondary }
         if abs(diff) <= 3 { return Color(hex: "059669") }
         return diff > 0 ? .tfOrange : .tfBlue
     }
@@ -316,11 +300,11 @@ struct ReflectionView: View {
     private func timeBlock(_ label: String, value: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(Font.dmSans(17, weight: .bold))
+                .font(.system(size: 17, weight: .bold))
                 .foregroundColor(color)
             Text(label)
-                .font(Font.dmSans(11))
-                .foregroundColor(.tfSecondary)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -329,8 +313,8 @@ struct ReflectionView: View {
     private func barRow(_ label: String, minutes: Int, max: Int, color: Color) -> some View {
         HStack(spacing: 10) {
             Text(label)
-                .font(Font.dmSans(11))
-                .foregroundColor(.tfSecondary)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
                 .frame(width: 78, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -341,7 +325,7 @@ struct ReflectionView: View {
             }
             .frame(height: 8)
             Text("\(minutes)")
-                .font(Font.dmSans(12, weight: .medium))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(color)
                 .frame(width: 28, alignment: .trailing)
         }
@@ -351,13 +335,11 @@ struct ReflectionView: View {
         HStack {
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 8, height: 8)
-                Text(label)
-                    .font(Font.dmSans(13))
-                    .foregroundColor(.tfSecondary)
+                Text(label).font(.system(size: 13)).foregroundColor(.secondary)
             }
             Spacer()
             Text("\(minutes) min")
-                .font(Font.dmSans(13, weight: .medium))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(color)
         }
     }

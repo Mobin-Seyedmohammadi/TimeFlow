@@ -47,7 +47,7 @@ struct AISuggestionCard: View {
 
     private var badgeForeground: Color {
         switch suggestion.confidence {
-        case .low:    return .tfSecondary
+        case .low:    return .secondary
         case .medium: return Color(hex: "D97706")
         case .high:   return .tfBlue
         }
@@ -58,44 +58,44 @@ struct AISuggestionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
 
-            // ── Header ──────────────────────────────────────────────────────────
+            // ── Header ─────────────────────────────────────────────────────────
             HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .bold))
+                Image(systemName: "cpu")
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.tfBlue)
                 Text("AI Suggestion")
-                    .font(Font.dmSans(13, weight: .medium))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.tfBlue)
                 Spacer()
                 // Confidence badge
                 Text(badgeLabel)
-                    .font(Font.dmSans(12, weight: .medium))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(badgeForeground)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
                     .background(badgeBackground)
-                    .clipShape(Capsule())
+                    .cornerRadius(7)
             }
 
-            // ── Main suggested time ──────────────────────────────────────────────
+            // ── Main suggested time ────────────────────────────────────────────
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .bottom, spacing: 0) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("TimeFlow suggests")
-                            .font(Font.dmSans(13))
-                            .foregroundColor(.tfSecondary)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                         Text("\(suggestion.suggestedMinutes) min")
-                            .font(Font.dmSans(36, weight: .bold))
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
                             .foregroundColor(.tfDark)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("Your estimate")
-                            .font(Font.dmSans(13))
-                            .foregroundColor(.tfSecondary)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                         Text("\(userEstimate) min")
-                            .font(Font.dmSans(20, weight: .medium))
-                            .foregroundColor(.tfSecondary)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.secondary)
                     }
                 }
 
@@ -103,15 +103,15 @@ struct AISuggestionCard: View {
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.left.and.right")
                         .font(.system(size: 11))
-                        .foregroundColor(.tfSecondary)
+                        .foregroundColor(.secondary)
                     Text("\(suggestion.confidencePercent)% chance: \(suggestion.lowBound)–\(suggestion.highBound) min")
-                        .font(Font.dmSans(13))
-                        .foregroundColor(.tfSecondary)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.top, 2)
             }
 
-            // ── Difference indicator ─────────────────────────────────────────────
+            // ── Difference indicator ───────────────────────────────────────────
             let diff = suggestion.suggestedMinutes - userEstimate
             if diff != 0 {
                 HStack(spacing: 6) {
@@ -121,33 +121,33 @@ struct AISuggestionCard: View {
                     Text(diff > 0
                          ? "AI suggests +\(diff) min more than your estimate"
                          : "AI suggests \(abs(diff)) min less than your estimate")
-                        .font(Font.dmSans(13))
-                        .foregroundColor(.tfSecondary)
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
                 }
             }
 
-            // ── Explanation + data source ────────────────────────────────────────
+            // ── Explanation + data source (both gated by showExplanation) ─────
             if showExplanation {
                 Text(suggestion.explanation)
-                    .font(Font.dmSans(14))
-                    .foregroundColor(.tfSecondary)
+                    .font(.system(size: 13))
+                    .foregroundColor(Color(hex: "374151"))
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(10)
                     .background(Color.tfBlue.opacity(0.06))
                     .cornerRadius(8)
 
                 Text("Source: \(suggestion.dataSource)")
-                    .font(Font.dmSans(11))
-                    .foregroundColor(.tfSecondary)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
             }
 
-            // ── Actions ──────────────────────────────────────────────────────────
+            // ── Actions ────────────────────────────────────────────────────────
             VStack(spacing: 8) {
                 Button(action: onUse) {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
                         Text("Use AI Suggestion (\(suggestion.suggestedMinutes) min)")
-                            .font(Font.dmSans(15, weight: .medium))
+                            .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
@@ -158,38 +158,30 @@ struct AISuggestionCard: View {
 
                 Button(action: onKeep) {
                     Text("Keep My Estimate (\(userEstimate) min)")
-                        .font(Font.dmSans(15, weight: .medium))
+                        .fontWeight(.medium)
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
-                        .background(.ultraThinMaterial)
-                        .foregroundColor(.tfDark)
+                        .background(Color.tfBlue.opacity(0.08))
+                        .foregroundColor(.tfBlue)
                         .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Color.white.opacity(0.5), lineWidth: 1)
-                        )
                 }
 
                 if let onAdjust = onAdjust {
                     Button(action: onAdjust) {
                         Text("Adjust Manually")
-                            .font(Font.dmSans(15))
-                            .foregroundColor(.tfSecondary)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
                 }
             }
         }
         .padding(16)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white.opacity(0.35))
-                RoundedRectangle(cornerRadius: 20)
-                    .strokeBorder(Color.white.opacity(0.5), lineWidth: 1)
-            }
+        .background(Color.tfCard)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.tfBlue.opacity(0.25), lineWidth: 1.5)
         )
-        .shadow(color: Color.tfBlue.opacity(0.08), radius: 12, x: 0, y: 4)
+        .shadow(color: Color.tfBlue.opacity(0.08), radius: 10, x: 0, y: 4)
     }
 }

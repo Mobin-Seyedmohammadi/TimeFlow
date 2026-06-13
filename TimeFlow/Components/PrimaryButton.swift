@@ -21,15 +21,15 @@ struct PrimaryButton: View {
                         .font(.system(size: 17, weight: .semibold))
                 }
                 Text(title)
-                    .font(Font.dmSans(17, weight: .medium))
+                    .font(.system(size: 17, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 54)
             .background(style.background)
             .foregroundColor(style.foreground)
-            .cornerRadius(16)
+            .cornerRadius(14)
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 14)
                     .stroke(style.border, lineWidth: style.borderWidth)
             )
         }
@@ -41,21 +41,20 @@ enum PrimaryButtonStyle {
 
     var background: Color {
         switch self {
-        case .blue:        return .tfBlue
-        case .orange:      return .tfOrange
-        case .outline:     return .clear
-        case .ghost:
-            return Color.white.opacity(0.35)
+        case .blue: return .tfBlue
+        case .orange: return .tfOrange
+        case .outline: return .clear
+        case .ghost: return .clear
         case .destructive: return Color(hex: "DC2626")
         }
     }
 
     var foreground: Color {
         switch self {
-        case .blue:        return .white
-        case .orange:      return .white
-        case .outline:     return .tfBlue
-        case .ghost:       return .tfDark
+        case .blue: return .white
+        case .orange: return .white
+        case .outline: return .tfBlue
+        case .ghost: return .tfDark
         case .destructive: return .white
         }
     }
@@ -63,16 +62,16 @@ enum PrimaryButtonStyle {
     var border: Color {
         switch self {
         case .outline: return .tfBlue
-        case .ghost:   return Color.white.opacity(0.5)
-        default:       return .clear
+        case .ghost: return Color.black.opacity(0.15)
+        default: return .clear
         }
     }
 
     var borderWidth: CGFloat {
         switch self {
         case .outline: return 1.5
-        case .ghost:   return 1
-        default:       return 0
+        case .ghost: return 1
+        default: return 0
         }
     }
 }

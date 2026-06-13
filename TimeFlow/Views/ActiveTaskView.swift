@@ -6,11 +6,13 @@ struct ActiveTaskView: View {
 
     private var task: TimeFlowTask? { vm.activeTask }
 
+    // True when elapsed time has passed the estimate, regardless of banner/warningState
     private var isActuallyOvertime: Bool {
         guard let t = task else { return false }
         return vm.elapsedMinutes >= Double(t.finalEstimateMinutes)
     }
 
+    // True when elapsed time is past the near-limit threshold
     private var isNearLimit: Bool {
         guard let t = task else { return false }
         return vm.elapsedMinutes >= Double(t.finalEstimateMinutes) * vm.warningThreshold
@@ -18,7 +20,7 @@ struct ActiveTaskView: View {
 
     var body: some View {
         ZStack {
-            AppGradients.activeTask
+            Color.tfBackground.ignoresSafeArea()
 
             if let task = task {
                 VStack(spacing: 0) {
@@ -34,7 +36,7 @@ struct ActiveTaskView: View {
                                 }
 
                                 Text(task.title)
-                                    .font(Font.dmSans(24, weight: .bold))
+                                    .font(.system(size: 24, weight: .bold))
                                     .foregroundColor(.tfDark)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -62,7 +64,7 @@ struct ActiveTaskView: View {
                                     timeStatColumn(
                                         label: "Estimated",
                                         value: "\(task.finalEstimateMinutes):00",
-                                        color: .tfSecondary
+                                        color: .secondary
                                     )
                                     Divider().frame(height: 44)
                                     if isActuallyOvertime {
@@ -82,12 +84,12 @@ struct ActiveTaskView: View {
                             }
                             .padding(.horizontal, 16)
 
-                            // Estimates reference card
+                            // Estimates reference card (Recognition over Recall)
                             TimeFlowCard {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Your Estimates")
-                                        .font(Font.dmSans(13, weight: .medium))
-                                        .foregroundColor(.tfSecondary)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(.secondary)
                                     HStack(spacing: 20) {
                                         estimateLabel("Your original", value: "\(task.userEstimateMinutes) min")
                                         estimateLabel("AI suggested", value: "\(task.aiSuggestedMinutes) min", color: .tfBlue)
@@ -97,22 +99,21 @@ struct ActiveTaskView: View {
                             }
                             .padding(.horizontal, 16)
 
+                            // "Continued past estimate" info card
+                            // Shown based on actual elapsed time, not warningState
+                            // (warningState may be .none after the banner was dismissed)
                             if vm.continuedAfterWarning && isActuallyOvertime {
                                 HStack(spacing: 8) {
                                     Image(systemName: "info.circle.fill")
                                         .foregroundColor(.tfBlue)
                                         .font(.system(size: 14))
                                     Text("Task continued. TimeFlow will include this extra time in your future insights.")
-                                        .font(Font.dmSans(13))
-                                        .foregroundColor(.tfSecondary)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
                                 }
                                 .padding(12)
-                                .background(.ultraThinMaterial)
+                                .background(Color.tfBlue.opacity(0.06))
                                 .cornerRadius(10)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
-                                )
                                 .padding(.horizontal, 16)
                             }
 
@@ -126,7 +127,7 @@ struct ActiveTaskView: View {
                     Spacer()
                     BottomActionBar {
                         HStack(spacing: 10) {
-                            // Pause/Resume (glass style)
+                            // Pause/Resume
                             Button(action: {
                                 if vm.isTimerRunning { vm.pauseTimer() }
                                 else { vm.resumeTimer() }
@@ -134,17 +135,13 @@ struct ActiveTaskView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: vm.isTimerRunning ? "pause.circle.fill" : "play.circle.fill")
                                     Text(vm.isTimerRunning ? "Pause" : "Resume")
-                                        .font(Font.dmSans(17, weight: .medium))
+                                        .fontWeight(.semibold)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
-                                .background(.ultraThinMaterial)
+                                .background(Color.black.opacity(0.06))
                                 .foregroundColor(.tfDark)
                                 .cornerRadius(14)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .strokeBorder(Color.white.opacity(0.5), lineWidth: 1)
-                                )
                             }
 
                             // Finish
@@ -152,7 +149,7 @@ struct ActiveTaskView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: "flag.checkered")
                                     Text("Finish Task")
-                                        .font(Font.dmSans(17, weight: .medium))
+                                        .fontWeight(.semibold)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
@@ -164,13 +161,13 @@ struct ActiveTaskView: View {
                     }
                 }
             } else {
+                // Task ended externally
                 VStack(spacing: 16) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 52))
+                        .font(.system(size: 48))
                         .foregroundColor(Color(hex: "059669"))
                     Text("Task completed!")
-                        .font(Font.dmSans(22, weight: .bold))
-                        .foregroundColor(.tfDark)
+                        .font(.title2.bold())
                 }
             }
         }
@@ -181,15 +178,14 @@ struct ActiveTaskView: View {
                 Button("Back") {
                     vm.showActiveTask = false
                 }
-                .font(Font.dmSans(17))
-                .foregroundColor(.tfSecondary)
+                .foregroundColor(.secondary)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(role: .destructive) {
                     showDiscardAlert = true
                 } label: {
                     Image(systemName: "xmark.circle")
-                        .foregroundColor(.tfSecondary)
+                        .foregroundColor(.secondary)
                 }
             }
         }
@@ -201,10 +197,13 @@ struct ActiveTaskView: View {
         }
     }
 
+    // Ring and elapsed label color: orange when near limit or overtime, blue otherwise.
+    // Based on actual elapsed time, not warningState (banner may have been dismissed).
     private var ringColor: Color {
         isActuallyOvertime || isNearLimit ? .tfOrange : .tfBlue
     }
 
+    // Status chip: reflects actual elapsed time so it stays correct after banner dismissal.
     private var statusChip: some View {
         let (label, icon, color): (String, String, Color) = {
             if !vm.isTimerRunning {
@@ -224,23 +223,23 @@ struct ActiveTaskView: View {
     private func timeStatColumn(label: String, value: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(Font.dmSans(18, weight: .bold))
-                .monospacedDigit()
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
                 .foregroundColor(color)
+                .monospacedDigit()
             Text(label)
-                .font(Font.dmSans(11))
-                .foregroundColor(.tfSecondary)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
     }
 
-    private func estimateLabel(_ label: String, value: String, color: Color = .tfSecondary) -> some View {
+    private func estimateLabel(_ label: String, value: String, color: Color = .secondary) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(Font.dmSans(11))
-                .foregroundColor(.tfSecondary)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
             Text(value)
-                .font(Font.dmSans(14, weight: .medium))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

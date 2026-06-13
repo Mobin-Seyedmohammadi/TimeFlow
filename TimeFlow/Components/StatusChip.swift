@@ -28,17 +28,13 @@ struct StatusChip: View {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .semibold))
             Text(label)
-                .font(Font.dmSans(12, weight: .medium))
+                .font(.system(size: 12, weight: .semibold))
         }
         .foregroundColor(color)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(color.opacity(0.12))
-        .overlay(
-            Capsule()
-                .strokeBorder(color.opacity(0.3), lineWidth: 0.5)
-        )
-        .clipShape(Capsule())
+        .cornerRadius(8)
     }
 }
 
@@ -48,15 +44,11 @@ struct EstimationLabelChip: View {
 
     var body: some View {
         Text(label)
-            .font(Font.dmSans(12, weight: .medium))
+            .font(.system(size: 12, weight: .semibold))
             .foregroundColor(color)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(color.opacity(0.12))
-            .overlay(
-                Capsule()
-                    .strokeBorder(color.opacity(0.3), lineWidth: 0.5)
-            )
-            .clipShape(Capsule())
+            .cornerRadius(8)
     }
 }

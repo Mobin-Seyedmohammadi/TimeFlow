@@ -61,7 +61,7 @@ struct StateAwareTaskCard: View {
                 }
 
                 Text(task.title)
-                    .font(Font.dmSans(18, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.tfDark)
 
                 // Progress bar
@@ -84,13 +84,13 @@ struct StateAwareTaskCard: View {
                             Image(systemName: "clock")
                                 .font(.system(size: 11))
                             Text("\(Int(elapsedMinutes)) min elapsed")
-                                .font(Font.dmSans(12))
+                                .font(.system(size: 12))
                         }
-                        .foregroundColor(.tfSecondary)
+                        .foregroundColor(.secondary)
                         Spacer()
                         Text("of \(task.finalEstimateMinutes) min")
-                            .font(Font.dmSans(12))
-                            .foregroundColor(.tfSecondary)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                     }
                 }
 
@@ -99,7 +99,7 @@ struct StateAwareTaskCard: View {
                         Image(systemName: "clock.badge.exclamationmark.fill")
                             .font(.system(size: 12))
                         Text("Extra time: +\(Int(overtimeMinutes)) min")
-                            .font(Font.dmSans(13, weight: .medium))
+                            .font(.system(size: 13, weight: .semibold))
                     }
                     .foregroundColor(.tfOrange)
                 }
@@ -108,7 +108,7 @@ struct StateAwareTaskCard: View {
                     Spacer()
                     HStack(spacing: 4) {
                         Text("Tap to open")
-                            .font(Font.dmSans(13, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
                     }
@@ -116,17 +116,13 @@ struct StateAwareTaskCard: View {
                 }
             }
             .padding(16)
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white.opacity(0.35))
-                    RoundedRectangle(cornerRadius: 20)
-                        .strokeBorder(stateColor.opacity(0.3), lineWidth: 1.5)
-                }
+            .background(Color.tfCard)
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(stateColor.opacity(0.3), lineWidth: 1.5)
             )
-            .shadow(color: stateColor.opacity(0.1), radius: 12, x: 0, y: 4)
+            .shadow(color: stateColor.opacity(0.1), radius: 8, x: 0, y: 3)
         }
         .buttonStyle(PlainButtonStyle())
     }
