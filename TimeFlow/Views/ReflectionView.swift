@@ -281,7 +281,7 @@ struct ReflectionView: View {
                 vm.startNewTask()
             }
         case .viewInsights:
-            vm.selectedTab = 1
+            vm.selectedTab = 2
         }
     }
 
@@ -293,7 +293,7 @@ struct ReflectionView: View {
     }
 
     private func navigateToInsights() {
-        vm.selectedTab = 1
+        vm.selectedTab = 2
         vm.showReflection = false
     }
 

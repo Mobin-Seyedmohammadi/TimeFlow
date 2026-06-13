@@ -1,102 +1,116 @@
 import SwiftUI
 
+// MARK: - TF Logotype
+
 struct TFLogo: View {
     var body: some View {
         ZStack {
-            Text("F")
-                .font(.custom("DMSans-Bold", size: 22))
-                .foregroundColor(Color(hex: "1A2240"))
-                .offset(x: 4, y: 0)
             Text("T")
-                .font(.custom("DMSans-Bold", size: 22))
-                .foregroundColor(Color(hex: "C0603A"))
-                .offset(x: -4, y: 0)
+                .font(.system(size: 26, weight: .bold, design: .serif))
+                .foregroundColor(Color(red: 0.72, green: 0.36, blue: 0.20))
+                .offset(x: -7, y: 0)
+            Text("F")
+                .font(.system(size: 26, weight: .bold, design: .serif))
+                .foregroundColor(Color(red: 0.10, green: 0.13, blue: 0.25))
+                .offset(x: 7, y: 0)
         }
     }
 }
 
+// MARK: - TodayView
+
 struct TodayView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
 
-    // MARK: - New Task CTA
+    // MARK: Aurora background — multi-blob ellipse gradient
 
-    private var newTaskCTA: some View {
+    private var auroraBackground: some View {
+        ZStack {
+            Color(red: 0.94, green: 0.90, blue: 0.93)
+
+            // Top-left lavender blob
+            Ellipse()
+                .fill(RadialGradient(
+                    colors: [Color(red: 0.72, green: 0.67, blue: 0.85).opacity(0.85), .clear],
+                    center: .center, startRadius: 0, endRadius: 220))
+                .frame(width: 380, height: 340)
+                .offset(x: -80, y: -300)
+
+            // Top-right peach/salmon blob
+            Ellipse()
+                .fill(RadialGradient(
+                    colors: [Color(red: 0.88, green: 0.72, blue: 0.63).opacity(0.9), .clear],
+                    center: .center, startRadius: 0, endRadius: 200))
+                .frame(width: 360, height: 320)
+                .offset(x: 120, y: -280)
+
+            // Bottom-right mauve blob
+            Ellipse()
+                .fill(RadialGradient(
+                    colors: [Color(red: 0.78, green: 0.68, blue: 0.75).opacity(0.75), .clear],
+                    center: .center, startRadius: 0, endRadius: 200))
+                .frame(width: 340, height: 300)
+                .offset(x: 130, y: 320)
+
+            // Bottom-left peach blob
+            Ellipse()
+                .fill(RadialGradient(
+                    colors: [Color(red: 0.90, green: 0.78, blue: 0.70).opacity(0.7), .clear],
+                    center: .center, startRadius: 0, endRadius: 180))
+                .frame(width: 300, height: 280)
+                .offset(x: -100, y: 300)
+        }
+        .ignoresSafeArea()
+    }
+
+    // MARK: New Task button — centered, with ambient glow
+
+    private var newTaskButton: some View {
         Button(action: { vm.startNewTask() }) {
             ZStack {
-                // Ambient glow
+                // Ambient white bloom behind the circle
                 Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.white.opacity(0.3), Color.clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 160
-                        )
-                    )
-                    .frame(width: 320, height: 320)
+                    .fill(RadialGradient(
+                        colors: [Color.white.opacity(0.55), .clear],
+                        center: .center,
+                        startRadius: 30,
+                        endRadius: 145))
+                    .frame(width: 290, height: 290)
 
-                // The button itself
+                // The blue circle button
                 Circle()
-                    .fill(Color.tfBlue)
+                    .fill(Color(red: 0.16, green: 0.02, blue: 0.95))
                     .frame(width: 180, height: 180)
-
-                Text("New Task")
-                    .font(Font.dmSans(20, weight: .medium))
-                    .foregroundColor(.white)
-                    .kerning(1.5)
+                    .overlay(
+                        Text("New Task")
+                            .font(.system(size: 20, weight: .medium))
+                            .tracking(1.5)
+                            .foregroundColor(.white)
+                    )
             }
         }
         .buttonStyle(PlainButtonStyle())
     }
 
-    // MARK: - Floating icon buttons
+    // MARK: Floating right-side buttons
 
-    private var floatingButtons: some View {
-        VStack(spacing: 8) {
-            // Bell / Alerts button
-            floatingIconButton(
-                icon: "bell.fill",
-                label: "Alerts",
-                badge: vm.activeSessions.contains(where: { $0.warningState != .none })
-            ) {
-                // Alerts action — tapping opens the first alerting session
+    private var alertsButton: some View {
+        VStack(spacing: 6) {
+            Button(action: {
                 if let alerting = vm.activeSessions.first(where: { $0.warningState != .none }) {
                     vm.focusedSessionID = alerting.id
                     vm.showActiveTask = true
                 }
-            }
-
-            // Active timer button — only visible when there's an active session
-            if !vm.activeSessions.isEmpty {
-                floatingIconButton(
-                    icon: "timer",
-                    label: "Active",
-                    badge: false
-                ) {
-                    if let session = vm.activeSessions.first {
-                        vm.focusedSessionID = session.id
-                        vm.showActiveTask = true
-                    }
-                }
-            }
-        }
-    }
-
-    private func floatingIconButton(icon: String, label: String, badge: Bool, action: @escaping () -> Void) -> some View {
-        VStack(spacing: 10) {
-            Button(action: action) {
+            }) {
                 ZStack {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                    Circle()
-                        .fill(Color.white.opacity(0.3))
-                    Circle()
-                        .strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5)
-                    Image(systemName: icon)
+                    Circle().fill(.ultraThinMaterial)
+                    Circle().fill(Color.white.opacity(0.3))
+                    Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5)
+                    Image(systemName: "record.circle")
                         .font(.system(size: 18))
-                        .foregroundColor(Color(hex: "888888"))
+                        .foregroundColor(.gray)
 
-                    if badge {
+                    if vm.activeSessions.contains(where: { $0.warningState != .none }) {
                         Circle()
                             .fill(Color.tfOrange)
                             .frame(width: 8, height: 8)
@@ -107,22 +121,49 @@ struct TodayView: View {
             }
             .buttonStyle(PlainButtonStyle())
 
-            Text(label)
-                .font(Font.dmSans(10))
-                .foregroundColor(Color(hex: "888888"))
+            Text("Alerts")
+                .font(.system(size: 10))
+                .foregroundColor(.gray)
         }
     }
 
-    // MARK: - Body
+    private var activeButton: some View {
+        VStack(spacing: 6) {
+            Button(action: {
+                if let session = vm.activeSessions.first {
+                    vm.focusedSessionID = session.id
+                    vm.showActiveTask = true
+                }
+            }) {
+                ZStack {
+                    Circle().fill(.ultraThinMaterial)
+                    Circle().fill(Color.white.opacity(0.3))
+                    Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5)
+                    Image(systemName: "timer")
+                        .font(.system(size: 18))
+                        .foregroundColor(.gray)
+                }
+                .frame(width: 44, height: 44)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Text("Active")
+                .font(.system(size: 10))
+                .foregroundColor(.gray)
+        }
+    }
+
+    // MARK: Body
 
     var body: some View {
         ZStack {
-            AppGradients.today
+            // 1. Aurora background
+            auroraBackground
 
+            // 2. Centered content (active cards above, button below)
             VStack(spacing: 24) {
                 Spacer()
 
-                // Active task cards (if any)
                 if !vm.activeSessions.isEmpty {
                     ScrollView {
                         VStack(spacing: 12) {
@@ -144,20 +185,25 @@ struct TodayView: View {
                     .frame(maxHeight: 260)
                 }
 
-                // Center CTA
-                newTaskCTA
+                newTaskButton
 
                 Spacer()
             }
 
-            // Floating trailing buttons ~30% from top
-            .overlay(alignment: .trailing) {
-                VStack {
-                    Spacer().frame(height: UIScreen.main.bounds.height * 0.28)
-                    floatingButtons
-                        .padding(.trailing, 16)
+            // 3. Right-side floating buttons — top-right, 80pt below nav bar
+            VStack {
+                HStack {
                     Spacer()
+                    VStack(spacing: 8) {
+                        alertsButton
+                        if !vm.activeSessions.isEmpty {
+                            activeButton
+                        }
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.top, 80)
                 }
+                Spacer()
             }
         }
         .navigationBarTitleDisplayMode(.inline)

@@ -1,27 +1,24 @@
 import SwiftUI
 
+// MARK: - Floating Tab Bar (4 tabs, pill/Capsule shape)
+
 struct FloatingTabBar: View {
     @Binding var selectedTab: Int
 
     var body: some View {
         HStack(spacing: 0) {
-            tabItem(icon: "sun.min", label: "Today", index: 0)
-            tabItem(icon: "chart.line.uptrend.xyaxis", label: "Insights", index: 1)
+            tabItem(icon: "sun.min",                    label: "Today",    index: 0)
+            tabItem(icon: "line.3.horizontal",          label: "History",  index: 1)
+            tabItem(icon: "arrow.up.right",             label: "Insights", index: 2)
+            tabItem(icon: "scope",                      label: "Settings", index: 3)
         }
+        .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .padding(.horizontal, 24)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 30)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 30)
-                    .fill(Color.white.opacity(0.45))
-                RoundedRectangle(cornerRadius: 30)
-                    .strokeBorder(Color.white.opacity(0.5), lineWidth: 0.5)
-            }
-        )
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
         .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 4)
         .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
     @ViewBuilder
@@ -31,18 +28,22 @@ struct FloatingTabBar: View {
             VStack(spacing: 4) {
                 ZStack {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color(hex: "F0D8C8"))
-                            .frame(width: 52, height: 38)
+                        Circle()
+                            .fill(Color(red: 0.92, green: 0.80, blue: 0.72).opacity(0.85))
+                            .frame(width: 52, height: 52)
                     }
                     Image(systemName: icon)
-                        .font(.system(size: 22))
-                        .foregroundColor(isSelected ? Color(hex: "C0603A") : Color(hex: "888888"))
+                        .font(.system(size: 20))
+                        .foregroundColor(
+                            isSelected
+                                ? Color(red: 0.65, green: 0.40, blue: 0.25)
+                                : .gray
+                        )
                 }
                 if !isSelected {
                     Text(label)
-                        .font(Font.dmSans(11))
-                        .foregroundColor(Color(hex: "888888"))
+                        .font(Font.dmSans(10))
+                        .foregroundColor(.gray)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -50,6 +51,8 @@ struct FloatingTabBar: View {
         .buttonStyle(.plain)
     }
 }
+
+// MARK: - Main Tab View
 
 struct MainTabView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
@@ -61,18 +64,24 @@ struct MainTabView: View {
     var body: some View {
         ZStack(alignment: .top) {
 
-            // ── Main content ───────────────────────────────────────────────────
+            // ── Tab content — 4 tabs: Today(0) History(1) Insights(2) Settings(3) ──
             ZStack {
-                if vm.selectedTab == 0 {
-                    NavigationStack {
-                        TodayView()
-                    }
-                    .transition(.opacity)
-                } else {
-                    NavigationStack {
-                        InsightsView()
-                    }
-                    .transition(.opacity)
+                switch vm.selectedTab {
+                case 0:
+                    NavigationStack { TodayView() }
+                        .transition(.opacity)
+                case 1:
+                    NavigationStack { HistoryView() }
+                        .transition(.opacity)
+                case 2:
+                    NavigationStack { InsightsView() }
+                        .transition(.opacity)
+                case 3:
+                    NavigationStack { SettingsView() }
+                        .transition(.opacity)
+                default:
+                    NavigationStack { TodayView() }
+                        .transition(.opacity)
                 }
             }
             .padding(.bottom, 90)
@@ -96,7 +105,6 @@ struct MainTabView: View {
             VStack {
                 Spacer()
                 FloatingTabBar(selectedTab: $vm.selectedTab)
-                    .padding(.bottom, 20)
             }
             .ignoresSafeArea(edges: .bottom)
             .zIndex(50)
