@@ -7,10 +7,8 @@ struct FloatingTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            tabItem(icon: "sun.min",                    label: "Today",    index: 0)
-            tabItem(icon: "line.3.horizontal",          label: "History",  index: 1)
-            tabItem(icon: "arrow.up.right",             label: "Insights", index: 2)
-            tabItem(icon: "scope",                      label: "Settings", index: 3)
+            tabItem(icon: "sun.min",            label: "Today",    index: 0)
+            tabItem(icon: "arrow.up.right",     label: "Insights", index: 1)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -66,21 +64,11 @@ struct MainTabView: View {
 
             // ── Tab content — 4 tabs: Today(0) History(1) Insights(2) Settings(3) ──
             ZStack {
-                switch vm.selectedTab {
-                case 0:
+                if vm.selectedTab == 0 {
                     NavigationStack { TodayView() }
                         .transition(.opacity)
-                case 1:
-                    NavigationStack { HistoryView() }
-                        .transition(.opacity)
-                case 2:
+                } else {
                     NavigationStack { InsightsView() }
-                        .transition(.opacity)
-                case 3:
-                    NavigationStack { SettingsView() }
-                        .transition(.opacity)
-                default:
-                    NavigationStack { TodayView() }
                         .transition(.opacity)
                 }
             }
