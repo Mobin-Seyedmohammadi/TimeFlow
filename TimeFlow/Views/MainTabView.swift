@@ -1,22 +1,22 @@
 import SwiftUI
 
-// MARK: - Floating Tab Bar (4 tabs, pill/Capsule shape)
+// MARK: - Floating Tab Bar (2 tabs: Today | Insights, Capsule pill)
 
 struct FloatingTabBar: View {
     @Binding var selectedTab: Int
 
     var body: some View {
         HStack(spacing: 0) {
-            tabItem(icon: "sun.min",            label: "Today",    index: 0)
-            tabItem(icon: "arrow.up.right",     label: "Insights", index: 1)
+            tabItem(icon: "sun.min",                    label: "Today",    index: 0)
+            tabItem(icon: "chart.line.uptrend.xyaxis",  label: "Insights", index: 1)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
-        .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.07), radius: 14, x: 0, y: 4)
         .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder
@@ -62,7 +62,7 @@ struct MainTabView: View {
     var body: some View {
         ZStack(alignment: .top) {
 
-            // ── Tab content — 4 tabs: Today(0) History(1) Insights(2) Settings(3) ──
+            // ── Tab content: Today (0) | Insights (1) ─────────────────────────
             ZStack {
                 if vm.selectedTab == 0 {
                     NavigationStack { TodayView() }
@@ -94,7 +94,6 @@ struct MainTabView: View {
                 Spacer()
                 FloatingTabBar(selectedTab: $vm.selectedTab)
             }
-            .ignoresSafeArea(edges: .bottom)
             .zIndex(50)
         }
         // New task sheet
