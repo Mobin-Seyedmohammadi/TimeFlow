@@ -112,9 +112,10 @@ struct TodayView: View {
                                         vm.showActiveTask = true
                                     }
                                 )
+                                .frame(maxWidth: .infinity)
                             }
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
                     }
                     .frame(maxHeight: 260)
                     Spacer()

@@ -129,5 +129,6 @@ struct StateAwareTaskCard: View {
             .shadow(color: stateColor.opacity(0.1), radius: 12, x: 0, y: 4)
         }
         .buttonStyle(PlainButtonStyle())
+        .frame(maxWidth: .infinity)
     }
 }
