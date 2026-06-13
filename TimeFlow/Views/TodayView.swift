@@ -1,140 +1,165 @@
 import SwiftUI
 
-// MARK: - TF Logotype
-
 struct TFLogo: View {
     var body: some View {
         ZStack {
-            Text("T")
-                .font(.system(size: 28, weight: .bold, design: .serif))
-                .foregroundColor(Color(red: 0.72, green: 0.36, blue: 0.20))
-                .offset(x: -9, y: 0)
             Text("F")
-                .font(.system(size: 28, weight: .bold, design: .serif))
-                .foregroundColor(Color(red: 0.10, green: 0.13, blue: 0.25))
-                .offset(x: 5, y: 0)
+                .font(.custom("DMSans-Bold", size: 22))
+                .foregroundColor(Color(hex: "1A2240"))
+                .offset(x: 4, y: 0)
+            Text("T")
+                .font(.custom("DMSans-Bold", size: 22))
+                .foregroundColor(Color(hex: "C0603A"))
+                .offset(x: -4, y: 0)
         }
     }
 }
 
-// MARK: - TodayView
-
 struct TodayView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
 
-    // MARK: Aurora background — blobs are ambient light, not visible shapes
+    // MARK: - New Task CTA
 
-    private var auroraBackground: some View {
-        ZStack {
-            Color(red: 0.94, green: 0.90, blue: 0.93)
-
-            // Top-left lavender — frame +40%, endRadius +50%, opacity ≤0.45
-            Ellipse()
-                .fill(RadialGradient(
-                    colors: [Color(red: 0.72, green: 0.67, blue: 0.85).opacity(0.40), .clear],
-                    center: .center, startRadius: 0, endRadius: 330))
-                .frame(width: 532, height: 476)
-                .offset(x: -80, y: -300)
-
-            // Top-right peach/salmon
-            Ellipse()
-                .fill(RadialGradient(
-                    colors: [Color(red: 0.88, green: 0.72, blue: 0.63).opacity(0.40), .clear],
-                    center: .center, startRadius: 0, endRadius: 300))
-                .frame(width: 504, height: 448)
-                .offset(x: 120, y: -280)
-
-            // Bottom-right mauve
-            Ellipse()
-                .fill(RadialGradient(
-                    colors: [Color(red: 0.78, green: 0.68, blue: 0.75).opacity(0.35), .clear],
-                    center: .center, startRadius: 0, endRadius: 300))
-                .frame(width: 476, height: 420)
-                .offset(x: 130, y: 320)
-
-            // Bottom-left peach
-            Ellipse()
-                .fill(RadialGradient(
-                    colors: [Color(red: 0.90, green: 0.78, blue: 0.70).opacity(0.35), .clear],
-                    center: .center, startRadius: 0, endRadius: 270))
-                .frame(width: 420, height: 392)
-                .offset(x: -100, y: 300)
-        }
-        .ignoresSafeArea()
-    }
-
-    // MARK: New Task button — centered, with ambient glow
-
-    private var newTaskButton: some View {
+    private var newTaskCTA: some View {
         Button(action: { vm.startNewTask() }) {
             ZStack {
+                // Ambient glow
                 Circle()
-                    .fill(RadialGradient(
-                        colors: [Color.white.opacity(0.55), .clear],
-                        center: .center,
-                        startRadius: 30,
-                        endRadius: 145))
-                    .frame(width: 290, height: 290)
-
-                Circle()
-                    .fill(Color(red: 0.16, green: 0.02, blue: 0.95))
-                    .frame(width: 180, height: 180)
-                    .overlay(
-                        Text("New Task")
-                            .font(.system(size: 20, weight: .medium))
-                            .tracking(1.5)
-                            .foregroundColor(.white)
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white.opacity(0.3), Color.clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 160
+                        )
                     )
+                    .frame(width: 320, height: 320)
+
+                // The button itself
+                Circle()
+                    .fill(Color.tfBlue)
+                    .frame(width: 180, height: 180)
+
+                Text("New Task")
+                    .font(Font.dmSans(20, weight: .medium))
+                    .foregroundColor(.white)
+                    .kerning(1.5)
             }
         }
         .buttonStyle(PlainButtonStyle())
     }
 
-    // MARK: Body
+    // MARK: - Floating icon buttons
+
+    private var floatingButtons: some View {
+        VStack(spacing: 8) {
+            // Bell / Alerts button
+            floatingIconButton(
+                icon: "bell.fill",
+                label: "Alerts",
+                badge: vm.activeSessions.contains(where: { $0.warningState != .none })
+            ) {
+                // Alerts action — tapping opens the first alerting session
+                if let alerting = vm.activeSessions.first(where: { $0.warningState != .none }) {
+                    vm.focusedSessionID = alerting.id
+                    vm.showActiveTask = true
+                }
+            }
+
+            // Active timer button — only visible when there's an active session
+            if !vm.activeSessions.isEmpty {
+                floatingIconButton(
+                    icon: "timer",
+                    label: "Active",
+                    badge: false
+                ) {
+                    if let session = vm.activeSessions.first {
+                        vm.focusedSessionID = session.id
+                        vm.showActiveTask = true
+                    }
+                }
+            }
+        }
+    }
+
+    private func floatingIconButton(icon: String, label: String, badge: Bool, action: @escaping () -> Void) -> some View {
+        VStack(spacing: 10) {
+            Button(action: action) {
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                    Circle()
+                        .fill(Color.white.opacity(0.3))
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.4), lineWidth: 0.5)
+                    Image(systemName: icon)
+                        .font(.system(size: 18))
+                        .foregroundColor(Color(hex: "888888"))
+
+                    if badge {
+                        Circle()
+                            .fill(Color.tfOrange)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 12, y: -12)
+                    }
+                }
+                .frame(width: 44, height: 44)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Text(label)
+                .font(Font.dmSans(10))
+                .foregroundColor(Color(hex: "888888"))
+        }
+    }
+
+    // MARK: - Body
 
     var body: some View {
         ZStack {
-            auroraBackground
+            AppGradients.today
 
-            // Single GeometryReader gives real pixel-accurate bounds for both
-            // the active cards (width-constrained) and the button (positioned).
-            GeometryReader { geo in
-                let w = geo.size.width
-                let h = geo.size.height
+            VStack(spacing: 24) {
+                Spacer()
 
-                // Active task cards — exactly w wide so 16pt padding = w-32pt card
+                // Active task cards (if any)
                 if !vm.activeSessions.isEmpty {
-                    VStack {
-                        ScrollView {
-                            VStack(spacing: 12) {
-                                ForEach(vm.activeSessions) { session in
-                                    StateAwareTaskCard(
-                                        task: session.task,
-                                        elapsedMinutes: session.elapsedMinutes,
-                                        isRunning: session.isRunning,
-                                        warningState: session.warningState,
-                                        onOpen: {
-                                            vm.focusedSessionID = session.id
-                                            vm.showActiveTask = true
-                                        }
-                                    )
-                                }
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            ForEach(vm.activeSessions) { session in
+                                StateAwareTaskCard(
+                                    task: session.task,
+                                    elapsedMinutes: session.elapsedMinutes,
+                                    isRunning: session.isRunning,
+                                    warningState: session.warningState,
+                                    onOpen: {
+                                        vm.focusedSessionID = session.id
+                                        vm.showActiveTask = true
+                                    }
+                                )
                             }
-                            .padding(.horizontal, 16)
                         }
-                        .frame(maxHeight: 260)
-                        Spacer()
+                        .padding(.horizontal, 20)
                     }
-                    .frame(width: w)   // hard cap to real screen width
-                    .padding(.top, 16)
+                    .frame(maxHeight: 260)
                 }
 
-                // New Task button at 42% from top, perfectly centered
-                newTaskButton
-                    .position(x: w / 2, y: h * 0.42)
+                // Center CTA
+                newTaskCTA
+
+                Spacer()
+            }
+
+            // Floating trailing buttons ~30% from top
+            .overlay(alignment: .trailing) {
+                VStack {
+                    Spacer().frame(height: UIScreen.main.bounds.height * 0.28)
+                    floatingButtons
+                        .padding(.trailing, 16)
+                    Spacer()
+                }
             }
         }
-        .clipped()  // prevent aurora blobs from visually overflowing
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
