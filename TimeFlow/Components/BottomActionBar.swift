@@ -10,14 +10,14 @@ struct BottomActionBar<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             Divider()
-                .background(Color.black.opacity(0.08))
+                .background(Color.white.opacity(0.3))
             VStack(spacing: 10) {
                 content
             }
             .padding(.horizontal, 16)
             .padding(.top, 14)
             .padding(.bottom, 24)
-            .background(Color.tfBackground)
+            .background(.ultraThinMaterial)
         }
     }
 }

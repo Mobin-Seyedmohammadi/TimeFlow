@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Full-width orange banner that appears at the top of the screen when a warning fires.
-/// Dismisses only when the user taps "Finish Task" or "Still Ongoing".
 struct WarningBanner: View {
     let state: WarningState
     let taskName: String
@@ -41,50 +39,56 @@ struct WarningBanner: View {
                       ? "clock.badge.exclamationmark.fill"
                       : "exclamationmark.triangle.fill")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.tfOrange)
 
                 Text(headline)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                    .font(Font.dmSans(15, weight: .bold))
+                    .foregroundColor(.tfDark)
 
                 Spacer()
             }
 
             Text(subtext)
-                .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.90))
+                .font(Font.dmSans(13))
+                .foregroundColor(.tfSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
                 Button(action: onFinish) {
                     Text("Finish Task")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color(hex: "FF4200"))
+                        .font(Font.dmSans(14, weight: .medium))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 38)
-                        .background(Color.white)
+                        .background(Color.tfOrange)
                         .cornerRadius(9)
                 }
 
                 Button(action: onContinue) {
                     Text(continueLabel)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(Font.dmSans(14, weight: .medium))
+                        .foregroundColor(.tfOrange)
                         .frame(maxWidth: .infinity)
                         .frame(height: 38)
-                        .background(Color.white.opacity(0.20))
+                        .background(.ultraThinMaterial)
                         .cornerRadius(9)
                         .overlay(
                             RoundedRectangle(cornerRadius: 9)
-                                .stroke(Color.white.opacity(0.50), lineWidth: 1)
+                                .stroke(Color.tfOrange.opacity(0.4), lineWidth: 1)
                         )
                 }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(Color(hex: "FF4200"))
-        .cornerRadius(0)  // flush edge-to-edge at the top
-        .shadow(color: Color(hex: "FF4200").opacity(0.35), radius: 12, x: 0, y: 6)
+        .background(
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill(Color.tfOrange.opacity(0.12))
+                Rectangle()
+                    .strokeBorder(Color.tfOrange.opacity(0.4), lineWidth: 1)
+            }
+        )
+        .shadow(color: Color.tfOrange.opacity(0.15), radius: 12, x: 0, y: 6)
     }
 }

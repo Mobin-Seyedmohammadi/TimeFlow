@@ -13,10 +13,10 @@ struct ProgressTimerView: View {
 
     private var ringColor: Color {
         switch warningState {
-        case .none: return .tfBlue
-        case .nearLimit: return .tfOrange
+        case .none:         return .tfBlue
+        case .nearLimit:    return .tfOrange
         case .reachedLimit: return .tfOrange
-        case .overtime: return .tfOrange
+        case .overtime:     return .tfOrange
         }
     }
 
@@ -60,13 +60,13 @@ struct ProgressTimerView: View {
             // Center content
             VStack(spacing: 4) {
                 Text(elapsedLabel)
-                    .font(.system(size: 46, weight: .bold, design: .monospaced))
-                    .foregroundColor(.tfDark)
+                    .font(Font.dmSans(52, weight: .bold))
                     .monospacedDigit()
+                    .foregroundColor(.tfDark)
 
                 Text("elapsed")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
+                    .font(Font.dmSans(13))
+                    .foregroundColor(.tfSecondary)
 
                 if isRunning {
                     HStack(spacing: 5) {
@@ -74,7 +74,7 @@ struct ProgressTimerView: View {
                             .fill(ringColor)
                             .frame(width: 6, height: 6)
                         Text(warningState == .overtime ? "Overtime" : "Running")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(Font.dmSans(12, weight: .medium))
                             .foregroundColor(ringColor)
                     }
                     .padding(.top, 2)
@@ -83,9 +83,9 @@ struct ProgressTimerView: View {
                         Image(systemName: "pause.fill")
                             .font(.system(size: 10))
                         Text("Paused")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(Font.dmSans(12, weight: .medium))
                     }
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.tfSecondary)
                     .padding(.top, 2)
                 }
             }

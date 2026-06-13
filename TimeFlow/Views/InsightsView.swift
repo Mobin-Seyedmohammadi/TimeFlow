@@ -5,7 +5,7 @@ struct InsightsView: View {
 
     var body: some View {
         ZStack {
-            Color.tfBackground.ignoresSafeArea()
+            AppGradients.insights
 
             if vm.completedTasks.isEmpty {
                 emptyState
@@ -16,9 +16,10 @@ struct InsightsView: View {
                         // 1. Your Overview
                         TimeFlowCard {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Your Overview")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(.tfDark)
+                                Text("YOUR OVERVIEW")
+                                    .font(Font.dmSans(13, weight: .medium))
+                                    .foregroundColor(.tfSecondary)
+                                    .kerning(0.5)
 
                                 HStack(spacing: 0) {
                                     statBlock("\(vm.completedTasks.count)", label: "Tasks Done")
@@ -52,7 +53,7 @@ struct InsightsView: View {
                         }
                         .padding(.horizontal, 16)
 
-                        // 3. Overall accuracy/pattern (only when ≥ 3 tasks)
+                        // 3. Overall accuracy/pattern
                         if let overall = vm.insights.first(where: {
                             $0.title == "Overall Pattern" || $0.title == "Overall Accuracy"
                         }) {
@@ -76,13 +77,13 @@ struct InsightsView: View {
         VStack(spacing: 16) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 48))
-                .foregroundColor(.secondary.opacity(0.5))
+                .foregroundColor(.tfSecondary.opacity(0.5))
             Text("Insights will appear soon")
-                .font(.system(size: 18, weight: .semibold))
+                .font(Font.dmSans(18, weight: .bold))
                 .foregroundColor(.tfDark)
             Text("Complete tasks to see your personal time estimation patterns.")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
+                .font(Font.dmSans(15))
+                .foregroundColor(.tfSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
@@ -97,7 +98,7 @@ struct InsightsView: View {
             case .pattern:        return .tfOrange
             case .recommendation: return Color(hex: "7C3AED")
             case .accuracy:       return .tfBlue
-            case .aiNote:         return .secondary
+            case .aiNote:         return .tfSecondary
             }
         }()
 
@@ -113,11 +114,11 @@ struct InsightsView: View {
                 }
                 VStack(alignment: .leading, spacing: 5) {
                     Text(insight.title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(Font.dmSans(17, weight: .bold))
                         .foregroundColor(.tfDark)
                     Text(insight.message)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
+                        .font(Font.dmSans(15))
+                        .foregroundColor(.tfSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -156,31 +157,36 @@ struct InsightsView: View {
                 .frame(width: 20)
 
             Text(stat.category.rawValue)
-                .font(.system(size: 14))
+                .font(Font.dmSans(15))
                 .foregroundColor(.tfDark)
 
             Spacer()
 
             Text("\(stat.count) task\(stat.count == 1 ? "" : "s")")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
+                .font(Font.dmSans(13))
+                .foregroundColor(.tfSecondary)
 
             let pct = Int(stat.avgDiffPct.rounded())
             Text(pct >= 0 ? "+\(pct)%" : "\(pct)%")
-                .font(.system(size: 12, weight: .semibold))
+                .font(Font.dmSans(13, weight: .medium))
                 .foregroundColor(abs(pct) <= 5 ? Color(hex: "059669") : (pct > 0 ? .tfOrange : .tfBlue))
                 .frame(width: 46, alignment: .trailing)
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary.opacity(0.5))
+                .foregroundColor(.tfSecondary.opacity(0.5))
         }
     }
 
     private func statBlock(_ value: String, label: String, color: Color = .tfDark) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 22, weight: .bold)).foregroundColor(color)
-            Text(label).font(.system(size: 11)).foregroundColor(.secondary).multilineTextAlignment(.center)
+            Text(value)
+                .font(Font.dmSans(28, weight: .bold))
+                .foregroundColor(color)
+            Text(label)
+                .font(Font.dmSans(11))
+                .foregroundColor(.tfSecondary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
     }

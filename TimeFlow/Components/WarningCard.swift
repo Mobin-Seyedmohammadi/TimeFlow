@@ -28,18 +28,18 @@ struct WarningCard: View {
                     .foregroundColor(.tfOrange)
                     .font(.system(size: 16))
                 Text("Almost at your estimate")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(Font.dmSans(15, weight: .bold))
                     .foregroundColor(.tfDark)
             }
 
             Text("You planned \(estimateMinutes) min for this task. You have used \(Int(elapsedMinutes)) min.")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
+                .font(Font.dmSans(14))
+                .foregroundColor(.tfSecondary)
 
             HStack(spacing: 10) {
                 Button(action: onFinish) {
                     Text("Finish Task")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(Font.dmSans(15, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(Color.tfDark)
@@ -51,11 +51,11 @@ struct WarningCard: View {
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.forward.circle.fill")
                         Text("Still Ongoing")
-                            .fontWeight(.semibold)
+                            .font(Font.dmSans(15, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background(Color.tfOrange.opacity(0.12))
+                    .background(.ultraThinMaterial)
                     .foregroundColor(.tfOrange)
                     .cornerRadius(11)
                     .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.tfOrange.opacity(0.3), lineWidth: 1))
@@ -63,18 +63,12 @@ struct WarningCard: View {
             }
         }
         .padding(14)
-        .background(Color.tfCard)
-        .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.tfOrange.opacity(0.4), lineWidth: 1.5)
-        )
-        .overlay(
-            Rectangle()
-                .fill(Color.tfOrange)
-                .frame(width: 4)
-                .cornerRadius(2),
-            alignment: .leading
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 14).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.35))
+                RoundedRectangle(cornerRadius: 14).strokeBorder(Color.tfOrange.opacity(0.4), lineWidth: 1.5)
+            }
         )
         .shadow(color: Color.tfOrange.opacity(0.12), radius: 8, x: 0, y: 3)
     }
@@ -86,18 +80,18 @@ struct WarningCard: View {
                     .foregroundColor(.tfOrange)
                     .font(.system(size: 16))
                 Text("Estimated time reached")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(Font.dmSans(15, weight: .bold))
                     .foregroundColor(.tfDark)
             }
 
             Text("Are you finished or still working on this task?")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
+                .font(Font.dmSans(14))
+                .foregroundColor(.tfSecondary)
 
             HStack(spacing: 10) {
                 Button(action: onFinish) {
                     Text("Finish Task")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(Font.dmSans(15, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(Color.tfBlue)
@@ -109,11 +103,11 @@ struct WarningCard: View {
                     HStack(spacing: 5) {
                         Image(systemName: "clock.arrow.circlepath")
                         Text("Continue Working")
-                            .fontWeight(.semibold)
+                            .font(Font.dmSans(15, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background(Color.tfOrange.opacity(0.12))
+                    .background(.ultraThinMaterial)
                     .foregroundColor(.tfOrange)
                     .cornerRadius(11)
                     .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.tfOrange.opacity(0.3), lineWidth: 1))
@@ -121,18 +115,12 @@ struct WarningCard: View {
             }
         }
         .padding(14)
-        .background(Color.tfCard)
-        .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.tfOrange, lineWidth: 1.5)
-        )
-        .overlay(
-            Rectangle()
-                .fill(Color.tfOrange)
-                .frame(width: 4)
-                .cornerRadius(2),
-            alignment: .leading
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 14).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.35))
+                RoundedRectangle(cornerRadius: 14).strokeBorder(Color.tfOrange, lineWidth: 1.5)
+            }
         )
         .shadow(color: Color.tfOrange.opacity(0.15), radius: 8, x: 0, y: 3)
     }
@@ -144,16 +132,16 @@ struct WarningCard: View {
                 .font(.system(size: 20))
             VStack(alignment: .leading, spacing: 2) {
                 Text("Extra time: +\(Int(overtimeMinutes)) min")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(Font.dmSans(14, weight: .bold))
                     .foregroundColor(.tfOrange)
                 Text("TimeFlow will use this to improve your future suggestions.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                    .font(Font.dmSans(12))
+                    .foregroundColor(.tfSecondary)
             }
             Spacer()
             Button(action: onFinish) {
                 Text("Finish")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(Font.dmSans(14, weight: .medium))
                     .foregroundColor(.white)
                     .padding(.horizontal, 14)
                     .frame(height: 36)
@@ -162,7 +150,7 @@ struct WarningCard: View {
             }
         }
         .padding(12)
-        .background(Color.tfOrange.opacity(0.08))
+        .background(.ultraThinMaterial)
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.tfOrange.opacity(0.3), lineWidth: 1))
     }

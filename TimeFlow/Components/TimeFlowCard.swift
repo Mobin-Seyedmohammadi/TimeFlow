@@ -3,18 +3,28 @@ import SwiftUI
 struct TimeFlowCard<Content: View>: View {
     let content: Content
     var padding: CGFloat = 16
+    var cornerRadius: CGFloat = 20
 
-    init(padding: CGFloat = 16, @ViewBuilder content: () -> Content) {
+    init(padding: CGFloat = 16, cornerRadius: CGFloat = 20, @ViewBuilder content: () -> Content) {
         self.padding = padding
+        self.cornerRadius = cornerRadius
         self.content = content()
     }
 
     var body: some View {
         content
             .padding(padding)
-            .background(Color.tfCard)
-            .cornerRadius(16)
-            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(Color.white.opacity(0.35))
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .strokeBorder(Color.white.opacity(0.5), lineWidth: 1)
+                }
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
     }
 }
 
@@ -39,7 +49,7 @@ struct SectionCard<Content: View>: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(iconColor)
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(Font.dmSans(17, weight: .bold))
                         .foregroundColor(.tfDark)
                 }
                 content
