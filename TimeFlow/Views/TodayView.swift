@@ -96,40 +96,45 @@ struct TodayView: View {
         ZStack {
             auroraBackground
 
-            // Active task cards anchored to the top of the content area
-            if !vm.activeSessions.isEmpty {
-                VStack {
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            ForEach(vm.activeSessions) { session in
-                                StateAwareTaskCard(
-                                    task: session.task,
-                                    elapsedMinutes: session.elapsedMinutes,
-                                    isRunning: session.isRunning,
-                                    warningState: session.warningState,
-                                    onOpen: {
-                                        vm.focusedSessionID = session.id
-                                        vm.showActiveTask = true
-                                    }
-                                )
-                                .frame(maxWidth: .infinity)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                    .frame(maxHeight: 260)
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, 16)
-            }
-
-            // New Task button at 42% from top, perfectly centered on x-axis
+            // Single GeometryReader gives real pixel-accurate bounds for both
+            // the active cards (width-constrained) and the button (positioned).
             GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+
+                // Active task cards — exactly w wide so 16pt padding = w-32pt card
+                if !vm.activeSessions.isEmpty {
+                    VStack {
+                        ScrollView {
+                            VStack(spacing: 12) {
+                                ForEach(vm.activeSessions) { session in
+                                    StateAwareTaskCard(
+                                        task: session.task,
+                                        elapsedMinutes: session.elapsedMinutes,
+                                        isRunning: session.isRunning,
+                                        warningState: session.warningState,
+                                        onOpen: {
+                                            vm.focusedSessionID = session.id
+                                            vm.showActiveTask = true
+                                        }
+                                    )
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                        .frame(maxHeight: 260)
+                        Spacer()
+                    }
+                    .frame(width: w)   // hard cap to real screen width
+                    .padding(.top, 16)
+                }
+
+                // New Task button at 42% from top, perfectly centered
                 newTaskButton
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
+                    .position(x: w / 2, y: h * 0.42)
             }
         }
+        .clipped()  // prevent aurora blobs from visually overflowing
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
