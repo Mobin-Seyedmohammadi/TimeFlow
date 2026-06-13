@@ -96,10 +96,9 @@ struct TodayView: View {
         ZStack {
             auroraBackground
 
-            VStack(spacing: 24) {
-                Spacer()
-
-                if !vm.activeSessions.isEmpty {
+            // Active task cards anchored to the top of the content area
+            if !vm.activeSessions.isEmpty {
+                VStack {
                     ScrollView {
                         VStack(spacing: 12) {
                             ForEach(vm.activeSessions) { session in
@@ -118,11 +117,16 @@ struct TodayView: View {
                         .padding(.horizontal, 20)
                     }
                     .frame(maxHeight: 260)
+                    Spacer()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 16)
+            }
 
+            // New Task button at 42% from top, perfectly centered on x-axis
+            GeometryReader { geo in
                 newTaskButton
-
-                Spacer()
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
             }
         }
         .navigationBarTitleDisplayMode(.inline)

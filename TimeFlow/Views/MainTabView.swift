@@ -15,7 +15,7 @@ struct FloatingTabBar: View {
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
         .shadow(color: Color.black.opacity(0.07), radius: 14, x: 0, y: 4)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 60)
         .padding(.bottom, 24)
     }
 
