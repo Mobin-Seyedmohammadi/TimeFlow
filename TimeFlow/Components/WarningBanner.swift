@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Full-width orange banner that appears at the top of the screen when a warning fires.
+/// Full-width frosted-glass banner with orange tint that appears when a warning fires.
 /// Dismisses only when the user taps "Finish Task" or "Still Ongoing".
 struct WarningBanner: View {
     let state: WarningState
@@ -40,51 +40,62 @@ struct WarningBanner: View {
                 Image(systemName: state == .overtime
                       ? "clock.badge.exclamationmark.fill"
                       : "exclamationmark.triangle.fill")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundColor(Color(hex: "D97706"))
 
                 Text(headline)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                    .font(.system(size: 15, weight: .regular))
+                    .tracking(0.5)
+                    .foregroundColor(Color(hex: "1A1A2E"))
 
                 Spacer()
             }
 
             Text(subtext)
-                .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.90))
+                .font(.system(size: 13, weight: .light))
+                .foregroundColor(Color(hex: "4A4A6A"))
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
                 Button(action: onFinish) {
                     Text("Finish Task")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color(hex: "FF4200"))
+                        .font(.system(size: 14, weight: .regular))
+                        .tracking(0.5)
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 38)
-                        .background(Color.white)
-                        .cornerRadius(9)
+                        .background(Color(hex: "D97706"))
+                        .cornerRadius(12)
                 }
 
                 Button(action: onContinue) {
                     Text(continueLabel)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(.system(size: 14, weight: .regular))
+                        .tracking(0.5)
+                        .foregroundColor(Color(hex: "D97706"))
                         .frame(maxWidth: .infinity)
                         .frame(height: 38)
-                        .background(Color.white.opacity(0.20))
-                        .cornerRadius(9)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(12)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 9)
-                                .stroke(Color.white.opacity(0.50), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(hex: "D97706").opacity(0.4), lineWidth: 1)
                         )
                 }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(Color(hex: "FF4200"))
+        .background(
+            Color(hex: "FF6B00").opacity(0.12)
+        )
+        .background(.ultraThinMaterial)
+        .overlay(
+            Rectangle()
+                .fill(Color(hex: "FF6B00").opacity(0.4))
+                .frame(height: 1),
+            alignment: .bottom
+        )
         .cornerRadius(0)  // flush edge-to-edge at the top
-        .shadow(color: Color(hex: "FF4200").opacity(0.35), radius: 12, x: 0, y: 6)
     }
 }

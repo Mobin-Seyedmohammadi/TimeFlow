@@ -13,7 +13,7 @@ struct ProgressTimerView: View {
 
     private var ringColor: Color {
         switch warningState {
-        case .none: return .tfBlue
+        case .none: return Color(red: 0.133, green: 0, blue: 1) // accent blue
         case .nearLimit: return .tfOrange
         case .reachedLimit: return .tfOrange
         case .overtime: return .tfOrange
@@ -27,9 +27,9 @@ struct ProgressTimerView: View {
 
     var body: some View {
         ZStack {
-            // Background ring
+            // Background ring — subtle white track
             Circle()
-                .stroke(Color.black.opacity(0.06), lineWidth: 14)
+                .stroke(Color.white.opacity(0.2), lineWidth: 14)
                 .frame(width: 200, height: 200)
 
             // Progress ring
@@ -41,7 +41,7 @@ struct ProgressTimerView: View {
                 )
                 .frame(width: 200, height: 200)
                 .rotationEffect(.degrees(-90))
-                .animation(.easeInOut(duration: 0.5), value: progress)
+                .animation(.spring(response: 0.4, dampingFraction: 0.75), value: progress)
 
             // Overflow ring (overtime > 100%)
             if elapsedMinutes > Double(estimateMinutes) {
@@ -54,19 +54,20 @@ struct ProgressTimerView: View {
                     )
                     .frame(width: 228, height: 228)
                     .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.5), value: overflow)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.75), value: overflow)
             }
 
             // Center content
             VStack(spacing: 4) {
                 Text(elapsedLabel)
-                    .font(.system(size: 46, weight: .bold, design: .monospaced))
-                    .foregroundColor(.tfDark)
+                    .font(.system(size: 46, weight: .light, design: .monospaced))
+                    .foregroundColor(Color(hex: "1A1A2E"))
                     .monospacedDigit()
 
                 Text("elapsed")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 13, weight: .light))
+                    .tracking(1.0)
+                    .foregroundColor(Color(hex: "8A8AAA"))
 
                 if isRunning {
                     HStack(spacing: 5) {
@@ -74,7 +75,8 @@ struct ProgressTimerView: View {
                             .fill(ringColor)
                             .frame(width: 6, height: 6)
                         Text(warningState == .overtime ? "Overtime" : "Running")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 12, weight: .regular))
+                            .tracking(0.5)
                             .foregroundColor(ringColor)
                     }
                     .padding(.top, 2)
@@ -83,9 +85,10 @@ struct ProgressTimerView: View {
                         Image(systemName: "pause.fill")
                             .font(.system(size: 10))
                         Text("Paused")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 12, weight: .regular))
+                            .tracking(0.5)
                     }
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(hex: "8A8AAA"))
                     .padding(.top, 2)
                 }
             }

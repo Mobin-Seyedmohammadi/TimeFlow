@@ -7,12 +7,23 @@ struct TodayView: View {
     private var circularAddButton: some View {
         Button(action: { vm.startNewTask() }) {
             ZStack {
+                // Wide outer bloom
                 Circle()
-                    .fill(Color.tfBlue)
-                    .frame(width: 80, height: 80)
-                    .shadow(color: Color.tfBlue.opacity(0.38), radius: 16, x: 0, y: 7)
-                Image(systemName: "plus")
-                    .font(.system(size: 32, weight: .semibold))
+                    .fill(Color(hex: "2200FF").opacity(0.22))
+                    .frame(width: 270, height: 270)
+                    .blur(radius: 45)
+                // Inner bloom ring
+                Circle()
+                    .fill(Color(hex: "2200FF").opacity(0.40))
+                    .frame(width: 215, height: 215)
+                    .blur(radius: 22)
+                // Main solid circle
+                Circle()
+                    .fill(Color(hex: "2200FF"))
+                    .frame(width: 190, height: 190)
+                // Label
+                Text("New Task")
+                    .font(.system(size: 20, weight: .light))
                     .foregroundColor(.white)
             }
         }
@@ -21,15 +32,15 @@ struct TodayView: View {
 
     var body: some View {
         ZStack {
-            Color.tfBackground.ignoresSafeArea()
+            AuroraBackground()
 
             if vm.activeSessions.isEmpty {
                 // ── Empty state: just the centered button ──────────────────────
                 circularAddButton
 
             } else {
-                // ── Active tasks + floating add button ─────────────────────────
-                ZStack(alignment: .bottom) {
+                // ── New Task button pinned to top; cards scroll underneath ───────
+                ZStack(alignment: .top) {
                     ScrollView {
                         VStack(spacing: 14) {
                             ForEach(vm.activeSessions) { session in
@@ -45,13 +56,14 @@ struct TodayView: View {
                                 )
                             }
                         }
-                        .padding(16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 120) // clear space above FAB
+                        .padding(.horizontal, 16)
+                        .padding(.top, 300)   // clears the button above
+                        .padding(.bottom, 100)
                     }
 
+                    // Button always rendered on top in Z and pinned to top in Y
                     circularAddButton
-                        .padding(.bottom, 32)
+                        .padding(.top, 16)
                 }
             }
         }

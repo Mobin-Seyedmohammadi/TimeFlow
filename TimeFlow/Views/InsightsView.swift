@@ -3,9 +3,11 @@ import SwiftUI
 struct InsightsView: View {
     @EnvironmentObject var vm: TimeFlowViewModel
 
+    private let accentBlue = Color(red: 0.133, green: 0, blue: 1)
+
     var body: some View {
         ZStack {
-            Color.tfBackground.ignoresSafeArea()
+            AuroraBackground()
 
             if vm.completedTasks.isEmpty {
                 emptyState
@@ -17,8 +19,9 @@ struct InsightsView: View {
                         TimeFlowCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Your Overview")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(.tfDark)
+                                    .font(.system(size: 15, weight: .light))
+                                    .tracking(1.0)
+                                    .foregroundColor(Color(hex: "1A1A2E"))
 
                                 HStack(spacing: 0) {
                                     statBlock("\(vm.completedTasks.count)", label: "Tasks Done")
@@ -38,7 +41,7 @@ struct InsightsView: View {
                         .padding(.horizontal, 16)
 
                         // 2. By Category
-                        SectionCard(title: "By Category", icon: "chart.bar.fill", iconColor: .tfBlue) {
+                        SectionCard(title: "By Category", icon: "chart.bar.fill", iconColor: accentBlue) {
                             VStack(spacing: 10) {
                                 ForEach(categoryStatsRows(), id: \.category.id) { stat in
                                     NavigationLink {
@@ -76,13 +79,14 @@ struct InsightsView: View {
         VStack(spacing: 16) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 48))
-                .foregroundColor(.secondary.opacity(0.5))
+                .foregroundColor(Color(hex: "8A8AAA").opacity(0.5))
             Text("Insights will appear soon")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.tfDark)
+                .font(.system(size: 18, weight: .light))
+                .tracking(0.5)
+                .foregroundColor(Color(hex: "1A1A2E"))
             Text("Complete tasks to see your personal time estimation patterns.")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
+                .font(.system(size: 14, weight: .light))
+                .foregroundColor(Color(hex: "4A4A6A"))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
@@ -96,8 +100,8 @@ struct InsightsView: View {
             case .improvement:    return Color(hex: "059669")
             case .pattern:        return .tfOrange
             case .recommendation: return Color(hex: "7C3AED")
-            case .accuracy:       return .tfBlue
-            case .aiNote:         return .secondary
+            case .accuracy:       return accentBlue
+            case .aiNote:         return Color(hex: "8A8AAA")
             }
         }()
 
@@ -113,11 +117,12 @@ struct InsightsView: View {
                 }
                 VStack(alignment: .leading, spacing: 5) {
                     Text(insight.title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.tfDark)
+                        .font(.system(size: 15, weight: .regular))
+                        .tracking(0.5)
+                        .foregroundColor(Color(hex: "1A1A2E"))
                     Text(insight.message)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(Color(hex: "4A4A6A"))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -156,31 +161,38 @@ struct InsightsView: View {
                 .frame(width: 20)
 
             Text(stat.category.rawValue)
-                .font(.system(size: 14))
-                .foregroundColor(.tfDark)
+                .font(.system(size: 14, weight: .light))
+                .foregroundColor(Color(hex: "1A1A2E"))
 
             Spacer()
 
             Text("\(stat.count) task\(stat.count == 1 ? "" : "s")")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
+                .font(.system(size: 12, weight: .light))
+                .foregroundColor(Color(hex: "8A8AAA"))
 
             let pct = Int(stat.avgDiffPct.rounded())
             Text(pct >= 0 ? "+\(pct)%" : "\(pct)%")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(abs(pct) <= 5 ? Color(hex: "059669") : (pct > 0 ? .tfOrange : .tfBlue))
+                .font(.system(size: 12, weight: .regular))
+                .tracking(0.5)
+                .foregroundColor(abs(pct) <= 5 ? Color(hex: "059669") : (pct > 0 ? .tfOrange : accentBlue))
                 .frame(width: 46, alignment: .trailing)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary.opacity(0.5))
+                .font(.system(size: 11, weight: .light))
+                .foregroundColor(Color(hex: "8A8AAA").opacity(0.5))
         }
     }
 
-    private func statBlock(_ value: String, label: String, color: Color = .tfDark) -> some View {
+    private func statBlock(_ value: String, label: String, color: Color = Color(hex: "1A1A2E")) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 22, weight: .bold)).foregroundColor(color)
-            Text(label).font(.system(size: 11)).foregroundColor(.secondary).multilineTextAlignment(.center)
+            Text(value)
+                .font(.system(size: 22, weight: .light))
+                .foregroundColor(color)
+            Text(label)
+                .font(.system(size: 11, weight: .light))
+                .tracking(0.5)
+                .foregroundColor(Color(hex: "8A8AAA"))
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
     }

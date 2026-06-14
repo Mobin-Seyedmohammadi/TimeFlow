@@ -13,25 +13,40 @@ struct PrimaryButton: View {
         self.action = action
     }
 
+    private let accentBlue = Color(red: 0.133, green: 0, blue: 1) // #2200FF
+
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                if let icon = icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 17, weight: .semibold))
+            ZStack {
+                // Glow bloom — only for .blue style
+                if style == .blue {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(accentBlue.opacity(0.4))
+                        .frame(height: 70)
+                        .blur(radius: 20)
+                        .padding(.horizontal, 20)
                 }
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+
+                // Button itself
+                HStack(spacing: 8) {
+                    if let icon = icon {
+                        Image(systemName: icon)
+                            .font(.system(size: 17, weight: .regular))
+                    }
+                    Text(title)
+                        .font(.system(size: 17, weight: .regular))
+                        .tracking(1.5)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 54)
+                .background(style.background)
+                .foregroundColor(style.foreground)
+                .cornerRadius(20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(style.border, lineWidth: style.borderWidth)
+                )
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(style.background)
-            .foregroundColor(style.foreground)
-            .cornerRadius(14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(style.border, lineWidth: style.borderWidth)
-            )
         }
     }
 }
@@ -41,10 +56,10 @@ enum PrimaryButtonStyle {
 
     var background: Color {
         switch self {
-        case .blue: return .tfBlue
+        case .blue: return Color(red: 0.133, green: 0, blue: 1)
         case .orange: return .tfOrange
         case .outline: return .clear
-        case .ghost: return .clear
+        case .ghost: return Color.white.opacity(0.2)
         case .destructive: return Color(hex: "DC2626")
         }
     }
@@ -53,16 +68,16 @@ enum PrimaryButtonStyle {
         switch self {
         case .blue: return .white
         case .orange: return .white
-        case .outline: return .tfBlue
-        case .ghost: return .tfDark
+        case .outline: return Color(red: 0.133, green: 0, blue: 1)
+        case .ghost: return Color(hex: "4A4A6A")
         case .destructive: return .white
         }
     }
 
     var border: Color {
         switch self {
-        case .outline: return .tfBlue
-        case .ghost: return Color.black.opacity(0.15)
+        case .outline: return Color(red: 0.133, green: 0, blue: 1)
+        case .ghost: return Color.white.opacity(0.4)
         default: return .clear
         }
     }

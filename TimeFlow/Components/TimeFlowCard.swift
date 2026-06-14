@@ -12,9 +12,12 @@ struct TimeFlowCard<Content: View>: View {
     var body: some View {
         content
             .padding(padding)
-            .background(Color.tfCard)
-            .cornerRadius(16)
-            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 24).fill(Color.white.opacity(0.25)))
+                    .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Color.white.opacity(0.5), lineWidth: 0.5))
+            )
     }
 }
 
@@ -36,14 +39,16 @@ struct SectionCard<Content: View>: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 15, weight: .regular))
                         .foregroundColor(iconColor)
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.tfDark)
+                        .font(.system(size: 15, weight: .regular))
+                        .tracking(0.5)
+                        .foregroundColor(Color(hex: "1A1A2E"))
                 }
                 content
             }
         }
+        .frame(maxWidth: .infinity)
     }
 }

@@ -26,15 +26,19 @@ struct StatusChip: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 11, weight: .regular))
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .regular))
+                .tracking(0.5)
         }
         .foregroundColor(color)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(color.opacity(0.12))
-        .cornerRadius(8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(color.opacity(0.15))
+                .overlay(Capsule().stroke(color.opacity(0.3), lineWidth: 1))
+        )
     }
 }
 
@@ -44,11 +48,15 @@ struct EstimationLabelChip: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: 12, weight: .regular))
+            .tracking(0.5)
             .foregroundColor(color)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(color.opacity(0.12))
-            .cornerRadius(8)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(color.opacity(0.15))
+                    .overlay(Capsule().stroke(color.opacity(0.3), lineWidth: 1))
+            )
     }
 }

@@ -7,6 +7,8 @@ struct ReflectionView: View {
     @State private var showUnsavedAlert = false
     @State private var pendingAction: PendingAction = .none
 
+    private let accentBlue = Color(red: 0.133, green: 0, blue: 1)
+
     private enum PendingAction {
         case none, startNewTask, viewInsights
     }
@@ -15,152 +17,172 @@ struct ReflectionView: View {
     private var isUnsaved: Bool { vm.completedTaskForReflection != nil }
 
     var body: some View {
-        ScrollView {
-            if let task = vm.completedTaskForReflection ?? savedTaskSnapshot {
-                VStack(spacing: 20) {
-                    // Completed header
-                    VStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 52))
-                            .foregroundColor(Color(hex: "059669"))
-                        Text("Task Complete!")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.tfDark)
-                        Text(task.title)
-                            .font(.system(size: 17))
-                            .foregroundColor(.secondary)
-                        StatusChip(category: task.category)
-                    }
-                    .padding(.top, 16)
+        ZStack {
+            AuroraBackground()
 
-                    // Unsaved reminder banner
-                    if isUnsaved {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.circle.fill")
-                                .foregroundColor(Color(hex: "D97706"))
-                            Text("Tap \"Save Reflection\" to add this task to your history.")
-                                .font(.system(size: 13))
-                                .foregroundColor(Color(hex: "D97706"))
+            ScrollView {
+                if let task = vm.completedTaskForReflection ?? savedTaskSnapshot {
+                    VStack(spacing: 20) {
+                        // Completed header
+                        VStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 52))
+                                .foregroundColor(Color(hex: "059669"))
+                            Text("Task Complete!")
+                                .font(.system(size: 28, weight: .light))
+                                .tracking(0.5)
+                                .foregroundColor(Color(hex: "1A1A2E"))
+                            Text(task.title)
+                                .font(.system(size: 17, weight: .light))
+                                .foregroundColor(Color(hex: "4A4A6A"))
+                            StatusChip(category: task.category)
                         }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(hex: "D97706").opacity(0.10))
-                        .cornerRadius(10)
-                        .padding(.horizontal, 16)
-                    }
+                        .padding(.top, 16)
 
-                    // Time breakdown card
-                    TimeFlowCard {
-                        VStack(spacing: 16) {
-                            Text("Time Breakdown")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            HStack(spacing: 0) {
-                                timeBlock("Your estimate", value: "\(task.userEstimateMinutes) min", color: Color.black.opacity(0.5))
-                                Divider().frame(height: 50)
-                                timeBlock("AI suggested", value: "\(task.aiSuggestedMinutes) min", color: .tfBlue)
-                                Divider().frame(height: 50)
-                                timeBlock("Actual time", value: "\(task.actualDurationMinutes ?? 0) min", color: Color(hex: "059669"))
-                            }
-
-                            // Visual bar comparison
-                            let maxVal = max(task.userEstimateMinutes, task.aiSuggestedMinutes, task.actualDurationMinutes ?? 1)
-                            VStack(spacing: 8) {
-                                barRow("Your estimate", minutes: task.userEstimateMinutes, max: maxVal, color: Color.black.opacity(0.35))
-                                barRow("AI suggested", minutes: task.aiSuggestedMinutes, max: maxVal, color: .tfBlue)
-                                barRow("Actual", minutes: task.actualDurationMinutes ?? 0, max: maxVal, color: Color(hex: "059669"))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-
-                    // Result interpretation
-                    TimeFlowCard {
-                        VStack(alignment: .leading, spacing: 10) {
+                        // Unsaved reminder banner — frosted glass with orange tint
+                        if isUnsaved {
                             HStack(spacing: 8) {
-                                Image(systemName: interpretationIcon(task))
-                                    .foregroundColor(interpretationColor(task))
-                                    .font(.system(size: 18))
-                                Text("Result")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(.tfDark)
-                                Spacer()
-                                EstimationLabelChip(label: task.estimationLabel, color: task.estimationLabelColor)
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .foregroundColor(Color(hex: "D97706"))
+                                Text("Tap \"Save Reflection\" to add this task to your history.")
+                                    .font(.system(size: 13, weight: .light))
+                                    .foregroundColor(Color(hex: "D97706"))
                             }
-                            Text(vm.reflectionMessage(for: task))
-                                .font(.system(size: 16))
-                                .foregroundColor(.tfDark)
-                            Text(vm.aiComparison(for: task))
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(Color(hex: "D97706").opacity(0.12))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(.ultraThinMaterial)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .strokeBorder(Color(hex: "D97706").opacity(0.4), lineWidth: 1)
+                                    )
+                            )
+                            .padding(.horizontal, 16)
                         }
-                    }
-                    .padding(.horizontal, 16)
 
-                    // Learning insight
-                    TimeFlowCard {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "lightbulb.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.tfBlue)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Learning Insight")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.tfDark)
-                                Text(vm.learningInsight(for: task))
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
+                        // Time breakdown card
+                        TimeFlowCard {
+                            VStack(spacing: 16) {
+                                Text("Time Breakdown")
+                                    .font(.system(size: 15, weight: .light))
+                                    .tracking(1.0)
+                                    .foregroundColor(Color(hex: "8A8AAA"))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                HStack(spacing: 0) {
+                                    timeBlock("Your estimate", value: "\(task.userEstimateMinutes) min", color: Color(hex: "4A4A6A"))
+                                    Divider().frame(height: 50)
+                                    timeBlock("AI suggested", value: "\(task.aiSuggestedMinutes) min", color: accentBlue)
+                                    Divider().frame(height: 50)
+                                    timeBlock("Actual time", value: "\(task.actualDurationMinutes ?? 0) min", color: Color(hex: "059669"))
+                                }
+
+                                // Visual bar comparison
+                                let maxVal = max(task.userEstimateMinutes, task.aiSuggestedMinutes, task.actualDurationMinutes ?? 1)
+                                VStack(spacing: 8) {
+                                    barRow("Your estimate", minutes: task.userEstimateMinutes, max: maxVal, color: Color(hex: "4A4A6A"))
+                                    barRow("AI suggested", minutes: task.aiSuggestedMinutes, max: maxVal, color: accentBlue)
+                                    barRow("Actual", minutes: task.actualDurationMinutes ?? 0, max: maxVal, color: Color(hex: "059669"))
+                                }
                             }
                         }
-                    }
-                    .padding(.horizontal, 16)
+                        .padding(.horizontal, 16)
 
-                    // Full comparison card
-                    TimeFlowCard {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Full Comparison")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.secondary)
-                            VStack(spacing: 6) {
-                                comparisonRow("Your original estimate", minutes: task.userEstimateMinutes, color: Color.black.opacity(0.5))
-                                comparisonRow("AI suggested", minutes: task.aiSuggestedMinutes, color: .tfBlue)
-                                comparisonRow("Final selected estimate", minutes: task.finalEstimateMinutes, color: Color(hex: "7C3AED"))
-                                comparisonRow("Actual duration", minutes: task.actualDurationMinutes ?? 0, color: Color(hex: "059669"))
-                                if let diff = task.estimationDifferenceMinutes {
-                                    Divider()
-                                    HStack {
-                                        Text("Difference")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(.secondary)
-                                        Spacer()
-                                        Text(diff >= 0 ? "+\(diff) min" : "\(diff) min")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(abs(diff) <= 3 ? Color(hex: "059669") : (diff > 0 ? .tfOrange : .tfBlue))
+                        // Result interpretation
+                        TimeFlowCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: interpretationIcon(task))
+                                        .foregroundColor(interpretationColor(task))
+                                        .font(.system(size: 18))
+                                    Text("Result")
+                                        .font(.system(size: 15, weight: .light))
+                                        .tracking(0.5)
+                                        .foregroundColor(Color(hex: "1A1A2E"))
+                                    Spacer()
+                                    EstimationLabelChip(label: task.estimationLabel, color: task.estimationLabelColor)
+                                }
+                                Text(vm.reflectionMessage(for: task))
+                                    .font(.system(size: 16, weight: .light))
+                                    .foregroundColor(Color(hex: "1A1A2E"))
+                                Text(vm.aiComparison(for: task))
+                                    .font(.system(size: 14, weight: .light))
+                                    .foregroundColor(Color(hex: "4A4A6A"))
+                            }
+                        }
+                        .padding(.horizontal, 16)
+
+                        // Learning insight
+                        TimeFlowCard {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "lightbulb.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(accentBlue)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Learning Insight")
+                                        .font(.system(size: 14, weight: .regular))
+                                        .tracking(0.5)
+                                        .foregroundColor(Color(hex: "1A1A2E"))
+                                    Text(vm.learningInsight(for: task))
+                                        .font(.system(size: 14, weight: .light))
+                                        .foregroundColor(Color(hex: "4A4A6A"))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+
+                        // Full comparison card
+                        TimeFlowCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Full Comparison")
+                                    .font(.system(size: 13, weight: .light))
+                                    .tracking(1.0)
+                                    .foregroundColor(Color(hex: "8A8AAA"))
+                                VStack(spacing: 6) {
+                                    comparisonRow("Your original estimate", minutes: task.userEstimateMinutes, color: Color(hex: "4A4A6A"))
+                                    comparisonRow("AI suggested", minutes: task.aiSuggestedMinutes, color: accentBlue)
+                                    comparisonRow("Final selected estimate", minutes: task.finalEstimateMinutes, color: Color(hex: "7C3AED"))
+                                    comparisonRow("Actual duration", minutes: task.actualDurationMinutes ?? 0, color: Color(hex: "059669"))
+                                    if let diff = task.estimationDifferenceMinutes {
+                                        Divider()
+                                        HStack {
+                                            Text("Difference")
+                                                .font(.system(size: 13, weight: .light))
+                                                .foregroundColor(Color(hex: "8A8AAA"))
+                                            Spacer()
+                                            Text(diff >= 0 ? "+\(diff) min" : "\(diff) min")
+                                                .font(.system(size: 13, weight: .regular))
+                                                .tracking(0.5)
+                                                .foregroundColor(abs(diff) <= 3 ? Color(hex: "059669") : (diff > 0 ? .tfOrange : accentBlue))
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    .padding(.horizontal, 16)
+                        .padding(.horizontal, 16)
 
-                    Spacer(minLength: 160)
+                        Spacer(minLength: 160)
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 40))
+                            .foregroundColor(Color(hex: "8A8AAA"))
+                        Text("No task to reflect on.")
+                            .font(.system(size: 16, weight: .light))
+                            .foregroundColor(Color(hex: "8A8AAA"))
+                    }
+                    .padding(.top, 80)
+                    .frame(maxWidth: .infinity)
                 }
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle")
-                        .font(.system(size: 40))
-                        .foregroundColor(.secondary)
-                    Text("No task to reflect on.")
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 80)
-                .frame(maxWidth: .infinity)
             }
         }
-        .background(Color.tfBackground.ignoresSafeArea())
         .navigationTitle("Reflection")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -176,8 +198,8 @@ struct ReflectionView: View {
                     vm.discardReflection()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(Color(hex: "8A8AAA"))
                 }
             }
         }
@@ -212,9 +234,10 @@ struct ReflectionView: View {
                             Image(systemName: "chart.line.uptrend.xyaxis")
                                 .font(.system(size: 13))
                             Text("View Insights")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.system(size: 15, weight: .light))
+                                .tracking(0.5)
                         }
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color(hex: "8A8AAA"))
                     }
                 }
             }
@@ -292,19 +315,21 @@ struct ReflectionView: View {
     }
 
     private func interpretationColor(_ task: TimeFlowTask) -> Color {
-        guard let diff = task.estimationDifferenceMinutes else { return .secondary }
+        guard let diff = task.estimationDifferenceMinutes else { return Color(hex: "8A8AAA") }
         if abs(diff) <= 3 { return Color(hex: "059669") }
-        return diff > 0 ? .tfOrange : .tfBlue
+        return diff > 0 ? .tfOrange : accentBlue
     }
 
     private func timeBlock(_ label: String, value: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 17, weight: .bold))
+                .font(.system(size: 17, weight: .regular))
+                .tracking(0.5)
                 .foregroundColor(color)
             Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
+                .font(.system(size: 11, weight: .light))
+                .tracking(0.5)
+                .foregroundColor(Color(hex: "8A8AAA"))
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -313,19 +338,20 @@ struct ReflectionView: View {
     private func barRow(_ label: String, minutes: Int, max: Int, color: Color) -> some View {
         HStack(spacing: 10) {
             Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
+                .font(.system(size: 11, weight: .light))
+                .foregroundColor(Color(hex: "8A8AAA"))
                 .frame(width: 78, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.06)).frame(height: 8)
+                    RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.2)).frame(height: 8)
                     RoundedRectangle(cornerRadius: 4).fill(color)
                         .frame(width: max > 0 ? geo.size.width * (CGFloat(minutes) / CGFloat(max)) : 0, height: 8)
                 }
             }
             .frame(height: 8)
             Text("\(minutes)")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .regular))
+                .tracking(0.5)
                 .foregroundColor(color)
                 .frame(width: 28, alignment: .trailing)
         }
@@ -335,11 +361,14 @@ struct ReflectionView: View {
         HStack {
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 8, height: 8)
-                Text(label).font(.system(size: 13)).foregroundColor(.secondary)
+                Text(label)
+                    .font(.system(size: 13, weight: .light))
+                    .foregroundColor(Color(hex: "4A4A6A"))
             }
             Spacer()
             Text("\(minutes) min")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .regular))
+                .tracking(0.5)
                 .foregroundColor(color)
         }
     }

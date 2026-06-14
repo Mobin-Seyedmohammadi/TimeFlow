@@ -23,7 +23,7 @@ struct StateAwareTaskCard: View {
     private var stateColor: Color {
         if isActuallyOvertime { return .tfOrange }
         switch warningState {
-        case .none: return task.status == .paused ? Color(hex: "D97706") : .tfBlue
+        case .none: return task.status == .paused ? Color(hex: "D97706") : Color(red: 0.133, green: 0, blue: 1)
         case .nearLimit, .reachedLimit: return .tfOrange
         case .overtime: return .tfOrange
         }
@@ -61,20 +61,20 @@ struct StateAwareTaskCard: View {
                 }
 
                 Text(task.title)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.tfDark)
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundColor(Color(hex: "1A1A2E"))
 
                 // Progress bar
                 VStack(alignment: .leading, spacing: 4) {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.black.opacity(0.06))
+                                .fill(Color.white.opacity(0.2))
                                 .frame(height: 8)
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(stateColor)
                                 .frame(width: geo.size.width * progressFraction, height: 8)
-                                .animation(.easeInOut(duration: 0.5), value: progressFraction)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.75), value: progressFraction)
                         }
                     }
                     .frame(height: 8)
@@ -86,11 +86,11 @@ struct StateAwareTaskCard: View {
                             Text("\(Int(elapsedMinutes)) min elapsed")
                                 .font(.system(size: 12))
                         }
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color(hex: "8A8AAA"))
                         Spacer()
                         Text("of \(task.finalEstimateMinutes) min")
                             .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "8A8AAA"))
                     }
                 }
 
@@ -99,7 +99,7 @@ struct StateAwareTaskCard: View {
                         Image(systemName: "clock.badge.exclamationmark.fill")
                             .font(.system(size: 12))
                         Text("Extra time: +\(Int(overtimeMinutes)) min")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 13, weight: .regular))
                     }
                     .foregroundColor(.tfOrange)
                 }
@@ -108,21 +108,21 @@ struct StateAwareTaskCard: View {
                     Spacer()
                     HStack(spacing: 4) {
                         Text("Tap to open")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13, weight: .regular))
+                            .tracking(0.5)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .regular))
                     }
                     .foregroundColor(stateColor)
                 }
             }
             .padding(16)
-            .background(Color.tfCard)
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(stateColor.opacity(0.3), lineWidth: 1.5)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 24).fill(Color.white.opacity(0.25)))
+                    .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(stateColor.opacity(0.4), lineWidth: 1))
             )
-            .shadow(color: stateColor.opacity(0.1), radius: 8, x: 0, y: 3)
         }
         .buttonStyle(PlainButtonStyle())
     }

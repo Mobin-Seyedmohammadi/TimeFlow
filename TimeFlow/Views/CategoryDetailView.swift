@@ -300,7 +300,7 @@ struct CategoryDetailView: View {
     }
 
     private var scatterChartCard: some View {
-        SectionCard(title: "Estimation Error Over Time", icon: "chart.xyaxis.line", iconColor: category.color) {
+        SectionCard(title: "How accurate are you?", icon: "chart.xyaxis.line", iconColor: category.color) {
             VStack(alignment: .leading, spacing: 12) {
                 let pts = errorPoints
                 if pts.isEmpty {
@@ -318,9 +318,9 @@ struct CategoryDetailView: View {
 
                     // Legend (colour encodes direction of error)
                     HStack(spacing: 14) {
-                        scatterLegend(color: Color(hex: "2B00FF"), label: "Accurate (±10%)")
-                        scatterLegend(color: Color(hex: "FF4200"), label: "Underestimated")
-                        scatterLegend(color: Color(hex: "7C3AED"), label: "Overestimated")
+                        scatterLegend(color: Color(hex: "2B00FF"), label: "On target")
+                        scatterLegend(color: Color(hex: "FF4200"), label: "Took longer")
+                        scatterLegend(color: Color(hex: "7C3AED"), label: "Finished early")
                     }
 
                     // Trend summary with dashed-line icon
@@ -583,17 +583,17 @@ struct CategoryDetailView: View {
            let top95 = c95.highs.last, let top80 = c80.highs.last,
            top95.y < top80.y - 16 {
             let rx = sx(xMax * 0.88)
-            context.draw(Text("95%").font(.system(size: 8))
+            context.draw(Text("wider").font(.system(size: 8))
                             .foregroundColor(Color.tfBlue.opacity(0.65)),
                          at: CGPoint(x: rx, y: top95.y), anchor: .bottom)
-            context.draw(Text("80%").font(.system(size: 8))
+            context.draw(Text("likely").font(.system(size: 8))
                             .foregroundColor(Color.tfBlue.opacity(0.50)),
                          at: CGPoint(x: rx, y: top80.y), anchor: .top)
         }
     }
 
     private var regressionChartCard: some View {
-        SectionCard(title: "Fitted Model: Estimate → Actual",
+        SectionCard(title: "Does your guess match reality?",
                     icon: "function",
                     iconColor: category.color) {
             VStack(alignment: .leading, spacing: 12) {
@@ -607,25 +607,17 @@ struct CategoryDetailView: View {
                     }
                     .frame(height: 240)
 
-                    // Formula and goodness-of-fit
-                    let b0 = Int(model.beta0.rounded())
-                    let b1 = String(format: "%.2f", model.beta1)
-                    let sign = model.beta0 >= 0 ? "+" : ""  // Int already carries – sign
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Actual ≈ \(sign)\(b0) + \(b1) × Estimate")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(Color(hex: "8A8AAA"))
-                        Text("R² = \(String(format: "%.2f", model.rSquared))  •  n = \(Int(model.n)) tasks")
-                            .font(.system(size: 11))
-                            .foregroundColor(Color(hex: "8A8AAA"))
-                    }
+                    // Task count summary
+                    Text("Based on \(Int(model.n)) tasks")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: "8A8AAA"))
 
                     // Legend
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 16) {
                             HStack(spacing: 5) {
                                 Rectangle().fill(Color.tfBlue).frame(width: 16, height: 2)
-                                Text("Fitted regression line").font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
+                                Text("your trend").font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
                             }
                             HStack(spacing: 5) {
                                 HStack(spacing: 2) {
@@ -635,7 +627,7 @@ struct CategoryDetailView: View {
                                             .frame(width: 5, height: 1.5)
                                     }
                                 }
-                                Text("y = x (perfect)").font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
+                                Text("perfect estimate").font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
                             }
                         }
                         HStack(spacing: 5) {
@@ -646,14 +638,14 @@ struct CategoryDetailView: View {
                                 Rectangle().fill(Color.tfBlue.opacity(0.09)).frame(width: 12, height: 10)
                             }
                             .cornerRadius(2)
-                            Text("80–95% prediction bands (outer darker = wider uncertainty)")
+                            Text("likely range (shaded area)")
                                 .font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
                         }
                     }
                 } else {
                     Text(tasks.count < 2
-                         ? "Complete at least 2 \(category.rawValue.lowercased()) tasks to see the regression model."
-                         : "Not enough variation in estimates to fit a model.")
+                         ? "Complete at least 2 \(category.rawValue.lowercased()) tasks to unlock this chart."
+                         : "Your estimates are very similar — not enough variation to show a pattern yet.")
                         .font(.system(size: 14)).foregroundColor(Color(hex: "8A8AAA"))
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 20)
@@ -673,6 +665,7 @@ struct CategoryDetailView: View {
             Text(t.text)
                 .font(.system(size: 14)).foregroundColor(Color(hex: "8A8AAA"))
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 16)
     }

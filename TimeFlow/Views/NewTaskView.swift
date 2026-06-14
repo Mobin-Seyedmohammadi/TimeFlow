@@ -11,26 +11,31 @@ struct NewTaskView: View {
     /// Tracks which card was just tapped so we can briefly highlight it.
     @State private var tappedCategory: TaskCategory? = nil
 
+    private let accentBlue = Color(red: 0.133, green: 0, blue: 1)
+
     var body: some View {
-        ScrollView {
-            LazyVGrid(
-                columns: [GridItem(.flexible()), GridItem(.flexible())],
-                spacing: 14
-            ) {
-                ForEach(TaskCategory.allCases) { cat in
-                    categoryCard(cat)
+        ZStack {
+            AuroraBackground()
+
+            ScrollView {
+                LazyVGrid(
+                    columns: [GridItem(.flexible()), GridItem(.flexible())],
+                    spacing: 14
+                ) {
+                    ForEach(TaskCategory.allCases) { cat in
+                        categoryCard(cat)
+                    }
                 }
+                .padding(16)
+                .padding(.top, 4)
             }
-            .padding(16)
-            .padding(.top, 4)
         }
-        .background(Color.tfBackground.ignoresSafeArea())
         .navigationTitle("What type of task?")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button("Cancel") { dismiss() }
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(hex: "8A8AAA"))
             }
         }
         // Push Step 2 onto the NavigationStack
@@ -53,30 +58,37 @@ struct NewTaskView: View {
             VStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(cat.color.opacity(0.13))
+                        .fill(cat.color.opacity(0.15))
                         .frame(width: 60, height: 60)
                     Image(systemName: cat.icon)
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.system(size: 28, weight: .light))
                         .foregroundColor(cat.color)
                 }
                 Text(cat.rawValue)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.tfDark)
+                    .font(.system(size: 13, weight: .light))
+                    .tracking(0.5)
+                    .foregroundColor(Color(hex: "1A1A2E"))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 22)
-            .background(isHighlighted ? cat.color.opacity(0.22) : Color.tfCard)
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        isHighlighted ? cat.color : Color.black.opacity(0.07),
-                        lineWidth: isHighlighted ? 2 : 1
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(isHighlighted ? cat.color.opacity(0.22) : Color.white.opacity(0.25))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .strokeBorder(
+                                isHighlighted ? cat.color.opacity(0.7) : Color.white.opacity(0.5),
+                                lineWidth: isHighlighted ? 1.5 : 0.5
+                            )
                     )
             )
-            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: isHighlighted)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -88,95 +100,110 @@ struct NewTaskStep2View: View {
     @EnvironmentObject var vm: TimeFlowViewModel
     @FocusState private var titleFocused: Bool
 
+    private let accentBlue = Color(red: 0.133, green: 0, blue: 1)
+
     private var canProceed: Bool {
         !vm.draftTitle.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+        ZStack {
+            AuroraBackground()
 
-                // ── Task name ──────────────────────────────────────────────────
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Task Name", systemImage: "pencil.line")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
 
-                    TextField("What are you going to do?", text: $vm.draftTitle)
-                        .font(.system(size: 17))
-                        .padding(14)
-                        .background(Color.tfCard)
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.black.opacity(0.10), lineWidth: 1)
-                        )
-                        .focused($titleFocused)
-                }
+                    // ── Task name ──────────────────────────────────────────────────
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Task Name", systemImage: "pencil.line")
+                            .font(.system(size: 13, weight: .light))
+                            .tracking(0.5)
+                            .foregroundColor(Color(hex: "8A8AAA"))
 
-                // ── Estimate stepper ───────────────────────────────────────────
-                VStack(alignment: .leading, spacing: 14) {
-                    Label("Your Estimate", systemImage: "clock")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.secondary)
-
-                    HStack(spacing: 24) {
-                        Button(action: {
-                            if vm.draftUserEstimate > 5 { vm.draftUserEstimate -= 5 }
-                        }) {
-                            Image(systemName: "minus.circle.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(
-                                    vm.draftUserEstimate > 5 ? .tfBlue : Color(.systemGray4)
-                                )
-                        }
-                        .disabled(vm.draftUserEstimate <= 5)
-
-                        VStack(spacing: 2) {
-                            Text("\(vm.draftUserEstimate)")
-                                .font(.system(size: 52, weight: .bold, design: .rounded))
-                                .foregroundColor(.tfDark)
-                                .frame(minWidth: 90)
-                            Text("minutes")
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Button(action: { vm.draftUserEstimate += 5 }) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(.tfBlue)
-                        }
+                        TextField("What are you going to do?", text: $vm.draftTitle)
+                            .font(.system(size: 17, weight: .light))
+                            .foregroundColor(Color(hex: "1A1A2E"))
+                            .padding(14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(RoundedRectangle(cornerRadius: 20).fill(Color.white.opacity(0.25)))
+                                    .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.white.opacity(0.5), lineWidth: 0.5))
+                            )
+                            .focused($titleFocused)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
 
-                    // Quick presets
-                    HStack(spacing: 8) {
-                        ForEach([15, 30, 45, 60, 90], id: \.self) { preset in
-                            Button(action: { vm.draftUserEstimate = preset }) {
-                                Text("\(preset)")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(vm.draftUserEstimate == preset ? .white : .tfBlue)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 36)
-                                    .background(
-                                        vm.draftUserEstimate == preset
-                                            ? Color.tfBlue
-                                            : Color.tfBlue.opacity(0.10)
+                    // ── Estimate stepper ───────────────────────────────────────────
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label("Your Estimate", systemImage: "clock")
+                            .font(.system(size: 13, weight: .light))
+                            .tracking(0.5)
+                            .foregroundColor(Color(hex: "8A8AAA"))
+
+                        HStack(spacing: 24) {
+                            Button(action: {
+                                if vm.draftUserEstimate > 5 { vm.draftUserEstimate -= 5 }
+                            }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(
+                                        vm.draftUserEstimate > 5 ? accentBlue : Color(hex: "8A8AAA")
                                     )
-                                    .cornerRadius(9)
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .disabled(vm.draftUserEstimate <= 5)
+
+                            VStack(spacing: 2) {
+                                Text("\(vm.draftUserEstimate)")
+                                    .font(.system(size: 52, weight: .light, design: .rounded))
+                                    .foregroundColor(Color(hex: "1A1A2E"))
+                                    .frame(minWidth: 90)
+                                Text("minutes")
+                                    .font(.system(size: 13, weight: .light))
+                                    .tracking(1.0)
+                                    .foregroundColor(Color(hex: "8A8AAA"))
+                            }
+
+                            Button(action: { vm.draftUserEstimate += 5 }) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(accentBlue)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+
+                        // Quick presets
+                        HStack(spacing: 8) {
+                            ForEach([15, 30, 45, 60, 90], id: \.self) { preset in
+                                Button(action: { vm.draftUserEstimate = preset }) {
+                                    Text("\(preset)")
+                                        .font(.system(size: 13, weight: .regular))
+                                        .tracking(0.5)
+                                        .foregroundColor(vm.draftUserEstimate == preset ? .white : accentBlue)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 36)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .fill(vm.draftUserEstimate == preset
+                                                    ? accentBlue
+                                                    : Color.white.opacity(0.3))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .strokeBorder(accentBlue.opacity(0.3), lineWidth: 0.5)
+                                                )
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .animation(.spring(response: 0.4, dampingFraction: 0.75), value: vm.draftUserEstimate)
+                            }
                         }
                     }
-                }
 
-                Spacer(minLength: 80)
+                    Spacer(minLength: 80)
+                }
+                .padding(16)
             }
-            .padding(16)
         }
-        .background(Color.tfBackground.ignoresSafeArea())
         .navigationTitle("Name your task")
         .navigationBarTitleDisplayMode(.large)
         // Navigate to AI review when Continue is tapped
