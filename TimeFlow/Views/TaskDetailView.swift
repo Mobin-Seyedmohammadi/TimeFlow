@@ -5,6 +5,8 @@ struct TaskDetailView: View {
     let task: TimeFlowTask
 
     var body: some View {
+        ZStack {
+        AuroraBackground()
         ScrollView {
             VStack(spacing: 20) {
                 // Header
@@ -17,7 +19,7 @@ struct TaskDetailView: View {
                         }
                         Text(task.title)
                             .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.tfDark)
+                            .foregroundColor(Color(hex: "1A1A2E"))
                         if let date = task.completedAt {
                             HStack(spacing: 5) {
                                 Image(systemName: "calendar")
@@ -25,7 +27,7 @@ struct TaskDetailView: View {
                                 Text(date.formatted(date: .long, time: .shortened))
                                     .font(.system(size: 13))
                             }
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "8A8AAA"))
                         }
                     }
                 }
@@ -57,7 +59,7 @@ struct TaskDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Visual Comparison")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "8A8AAA"))
 
                         let maxVal = max(task.userEstimateMinutes, task.aiSuggestedMinutes, task.actualDurationMinutes ?? 1)
                         VStack(spacing: 10) {
@@ -80,7 +82,7 @@ struct TaskDetailView: View {
                                 .foregroundColor(accuracyColor(accuracy))
                             Text(accuracyDescription(accuracy))
                                 .font(.system(size: 14))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color(hex: "8A8AAA"))
                                 .multilineTextAlignment(.center)
                         }
                         .frame(maxWidth: .infinity)
@@ -93,7 +95,7 @@ struct TaskDetailView: View {
                     SectionCard(title: "Notes", icon: "note.text") {
                         Text(task.notes)
                             .font(.system(size: 14))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "8A8AAA"))
                     }
                     .padding(.horizontal, 16)
                 }
@@ -102,13 +104,13 @@ struct TaskDetailView: View {
             }
             .padding(.vertical, 16)
         }
-        .background(Color.tfBackground.ignoresSafeArea())
+        }
         .navigationTitle("Task Detail")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button("Close") { dismiss() }
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(hex: "8A8AAA"))
             }
         }
     }
@@ -117,7 +119,7 @@ struct TaskDetailView: View {
         HStack {
             Text(label)
                 .font(.system(size: 14))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color(hex: "8A8AAA"))
             Spacer()
             Text(value)
                 .font(.system(size: 14, weight: bold ? .bold : .semibold))
@@ -129,11 +131,11 @@ struct TaskDetailView: View {
         HStack(spacing: 10) {
             Text(label)
                 .font(.system(size: 11))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color(hex: "8A8AAA"))
                 .frame(width: 80, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.06)).frame(height: 8)
+                    RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.2)).frame(height: 8)
                     RoundedRectangle(cornerRadius: 4).fill(color)
                         .frame(width: max > 0 ? geo.size.width * (CGFloat(minutes) / CGFloat(max)) : 0, height: 8)
                 }

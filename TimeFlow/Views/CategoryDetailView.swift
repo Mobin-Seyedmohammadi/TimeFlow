@@ -67,21 +67,23 @@ struct CategoryDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                summaryCard
-                if tasks.count >= 2 {
-                    scatterChartCard      // absolute-error scatter
-                    regressionChartCard   // fitted model (estimate → actual)
+        ZStack {
+            AuroraBackground()
+            ScrollView {
+                VStack(spacing: 16) {
+                    summaryCard
+                    if tasks.count >= 2 {
+                        scatterChartCard      // absolute-error scatter
+                        regressionChartCard   // fitted model (estimate → actual)
+                    }
+                    trendCard
+                    if tasks.count >= 2 { notableTasksCard }
+                    taskListCard
+                    Spacer(minLength: 20)
                 }
-                trendCard
-                if tasks.count >= 2 { notableTasksCard }
-                taskListCard
-                Spacer(minLength: 20)
+                .padding(.vertical, 8)
             }
-            .padding(.vertical, 8)
         }
-        .background(Color.tfBackground.ignoresSafeArea())
         .navigationTitle(category.rawValue)
         .navigationBarTitleDisplayMode(.large)
     }
@@ -101,10 +103,10 @@ struct CategoryDetailView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(category.rawValue)
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.tfDark)
+                            .foregroundColor(Color(hex: "1A1A2E"))
                         Text("\(tasks.count) completed task\(tasks.count == 1 ? "" : "s")")
                             .font(.system(size: 13))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "8A8AAA"))
                     }
                 }
 
@@ -136,7 +138,7 @@ struct CategoryDetailView: View {
     private func statBlock(value: String, label: String, color: Color) -> some View {
         VStack(spacing: 3) {
             Text(value).font(.system(size: 20, weight: .bold)).foregroundColor(color)
-            Text(label).font(.system(size: 11)).foregroundColor(.secondary).multilineTextAlignment(.center)
+            Text(label).font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA")).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
     }
@@ -303,7 +305,7 @@ struct CategoryDetailView: View {
                 let pts = errorPoints
                 if pts.isEmpty {
                     Text("No data yet.")
-                        .font(.system(size: 14)).foregroundColor(.secondary)
+                        .font(.system(size: 14)).foregroundColor(Color(hex: "8A8AAA"))
                         .frame(maxWidth: .infinity, alignment: .center).padding(.vertical, 40)
                 } else {
                     GeometryReader { geo in
@@ -330,7 +332,7 @@ struct CategoryDetailView: View {
                         }
                         .frame(width: 20).padding(.top, 5)
                         Text(scatterSummaryText)
-                            .font(.system(size: 13)).foregroundColor(.secondary)
+                            .font(.system(size: 13)).foregroundColor(Color(hex: "8A8AAA"))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.top, 2)
@@ -343,7 +345,7 @@ struct CategoryDetailView: View {
     private func scatterLegend(color: Color, label: String) -> some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(label).font(.system(size: 11)).foregroundColor(.secondary)
+            Text(label).font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
         }
     }
 
@@ -612,10 +614,10 @@ struct CategoryDetailView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Actual ≈ \(sign)\(b0) + \(b1) × Estimate")
                             .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "8A8AAA"))
                         Text("R² = \(String(format: "%.2f", model.rSquared))  •  n = \(Int(model.n)) tasks")
                             .font(.system(size: 11))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "8A8AAA"))
                     }
 
                     // Legend
@@ -623,7 +625,7 @@ struct CategoryDetailView: View {
                         HStack(spacing: 16) {
                             HStack(spacing: 5) {
                                 Rectangle().fill(Color.tfBlue).frame(width: 16, height: 2)
-                                Text("Fitted regression line").font(.system(size: 11)).foregroundColor(.secondary)
+                                Text("Fitted regression line").font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
                             }
                             HStack(spacing: 5) {
                                 HStack(spacing: 2) {
@@ -633,7 +635,7 @@ struct CategoryDetailView: View {
                                             .frame(width: 5, height: 1.5)
                                     }
                                 }
-                                Text("y = x (perfect)").font(.system(size: 11)).foregroundColor(.secondary)
+                                Text("y = x (perfect)").font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
                             }
                         }
                         HStack(spacing: 5) {
@@ -645,14 +647,14 @@ struct CategoryDetailView: View {
                             }
                             .cornerRadius(2)
                             Text("80–95% prediction bands (outer darker = wider uncertainty)")
-                                .font(.system(size: 11)).foregroundColor(.secondary)
+                                .font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
                         }
                     }
                 } else {
                     Text(tasks.count < 2
                          ? "Complete at least 2 \(category.rawValue.lowercased()) tasks to see the regression model."
                          : "Not enough variation in estimates to fit a model.")
-                        .font(.system(size: 14)).foregroundColor(.secondary)
+                        .font(.system(size: 14)).foregroundColor(Color(hex: "8A8AAA"))
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 20)
                 }
@@ -669,7 +671,7 @@ struct CategoryDetailView: View {
         let t = trend
         return SectionCard(title: "Trend", icon: t.icon, iconColor: t.color) {
             Text(t.text)
-                .font(.system(size: 14)).foregroundColor(.secondary)
+                .font(.system(size: 14)).foregroundColor(Color(hex: "8A8AAA"))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 16)
@@ -700,7 +702,7 @@ struct CategoryDetailView: View {
                 .font(.system(size: 11, weight: .semibold)).foregroundColor(badgeColor)
                 .textCase(.uppercase)
             Text(task.title)
-                .font(.system(size: 14, weight: .semibold)).foregroundColor(.tfDark).lineLimit(1)
+                .font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: "1A1A2E")).lineLimit(1)
             HStack(spacing: 16) {
                 miniStat("Estimated", "\(task.finalEstimateMinutes) min")
                 miniStat("Actual", "\(task.actualDurationMinutes ?? 0) min")
@@ -733,7 +735,7 @@ struct CategoryDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(task.title)
-                    .font(.system(size: 14, weight: .semibold)).foregroundColor(.tfDark).lineLimit(1)
+                    .font(.system(size: 14, weight: .semibold)).foregroundColor(Color(hex: "1A1A2E")).lineLimit(1)
                 Spacer()
                 EstimationLabelChip(label: task.estimationLabel, color: task.estimationLabelColor)
             }
@@ -754,14 +756,14 @@ struct CategoryDetailView: View {
             }
             if let date = task.completedAt {
                 Text(date.formatted(date: .abbreviated, time: .omitted))
-                    .font(.system(size: 11)).foregroundColor(.secondary)
+                    .font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
             }
         }
     }
 
     private func miniStat(_ label: String, _ value: String, color: Color = .tfDark) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 11)).foregroundColor(.secondary)
+            Text(label).font(.system(size: 11)).foregroundColor(Color(hex: "8A8AAA"))
             Text(value).font(.system(size: 13, weight: .semibold)).foregroundColor(color)
         }
     }
